@@ -863,9 +863,9 @@ export default function Page() {
           ) : (
             <button 
               onClick={() => setIsFaqModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 border rounded-full text-[11px] sm:text-xs font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
+              className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1 sm:py-1.5 border rounded-full text-[10px] sm:text-xs font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
             >
-              <HelpCircle size={13} className="text-[#c9b074]" />
+              <HelpCircle size={11} className="text-[#c9b074] sm:w-[13px] sm:h-[13px]" />
               <span>FAQ / Aiuto</span>
             </button>
           )}
@@ -876,7 +876,7 @@ export default function Page() {
       {isAdmin ? (
         <main className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-24">
           <div className="mb-8">
-            <h1 className="text-3xl sm:text-5xl font-normal font-playfair text-white mb-2 leading-tight">
+            <h1 className="text-4xl sm:text-5xl font-normal font-playfair text-white mb-2 leading-tight">
               Gestione Allievi
             </h1>
             <p className="text-sm sm:text-base text-slate-400 italic">
@@ -904,7 +904,7 @@ export default function Page() {
                     onChange={(e) => setNewNome(e.target.value)}
                     placeholder="Mario"
                     required
-                    className="w-full border rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
 
@@ -918,7 +918,7 @@ export default function Page() {
                     onChange={(e) => setNewCognome(e.target.value)}
                     placeholder="Rossi"
                     required
-                    className="w-full border rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
 
@@ -931,7 +931,7 @@ export default function Page() {
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     placeholder="mario.rossi@email.com"
-                    className="w-full border rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
 
@@ -945,7 +945,7 @@ export default function Page() {
                     onChange={(e) => setNewEventoInput(e.target.value)}
                     placeholder="Saggio Fine Anno"
                     required
-                    className="w-full border rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
 
@@ -958,7 +958,7 @@ export default function Page() {
                     value={newEventoDescInput}
                     onChange={(e) => setNewEventoDescInput(e.target.value)}
                     placeholder="Es. Concerto di fine anno accademico..."
-                    className="w-full border rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
 
@@ -972,7 +972,7 @@ export default function Page() {
                     onChange={(e) => setNewCorsiInput(e.target.value)}
                     placeholder="Pianoforte, Canto"
                     required
-                    className="w-full border rounded-xl px-4 py-2.5 text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-xl px-4 py-2.5 text-base sm:text-xs focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
               </div>
@@ -993,7 +993,7 @@ export default function Page() {
               placeholder="Cerca allievo per nome, cognome o email..."
               value={staffSearchQuery}
               onChange={(e) => setStaffSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/20 text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074] transition-colors text-sm shadow-xl"
+              className="w-full px-4 py-3 rounded-2xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/20 text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074] transition-colors text-base sm:text-sm shadow-xl"
             />
           </div>
 
@@ -1064,7 +1064,7 @@ export default function Page() {
                             placeholder="Nome nuovo evento..."
                             value={newEventNames[student.id] || ""}
                             onChange={(e) => setNewEventNames({ ...newEventNames, [student.id]: e.target.value })}
-                            className="w-full sm:flex-1 border rounded-xl px-4 py-2 text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                            className="w-full sm:flex-1 border rounded-xl px-4 py-2 text-base sm:text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                           />
                           <button 
                             onClick={() => handleAddEvent(student.id)}
@@ -1080,7 +1080,7 @@ export default function Page() {
                             placeholder="Descrizione evento (facoltativa)..."
                             value={newEventDescriptions[student.id] || ""}
                             onChange={(e) => setNewEventDescriptions({ ...newEventDescriptions, [student.id]: e.target.value })}
-                            className="w-full border rounded-xl px-4 py-2 text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                            className="w-full border rounded-xl px-4 py-2 text-base sm:text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                           />
                         </div>
                       </div>
@@ -1112,7 +1112,7 @@ export default function Page() {
                                   placeholder="Aggiungi una descrizione per questo evento..."
                                   defaultValue={event.description || ""}
                                   onChange={(e) => setEventDescInputs({ ...eventDescInputs, [`${student.id}-${eIdx}`]: e.target.value })}
-                                  className="w-full sm:flex-1 border rounded-xl px-3 py-2 text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                                  className="w-full sm:flex-1 border rounded-xl px-3 py-2 text-base sm:text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                                 />
                                 <button 
                                   onClick={() => handleSaveEventDescription(student.id, eIdx)}
@@ -1129,7 +1129,7 @@ export default function Page() {
                                 placeholder="Nuovo corso..."
                                 value={newCourseNames[`${student.id}-${eIdx}`] || ""}
                                 onChange={(e) => setNewCourseNames({ ...newCourseNames, [`${student.id}-${eIdx}`]: e.target.value })}
-                                className="w-full sm:flex-1 border rounded-xl px-3 py-1.5 text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                                className="w-full sm:flex-1 border rounded-xl px-3 py-1.5 text-base sm:text-xs bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                               />
                               <button 
                                 onClick={() => handleAddCourseToEvent(student.id, eIdx)}
@@ -1232,7 +1232,7 @@ export default function Page() {
                     onChange={(e) => setStudentEmailInput(e.target.value)} 
                     required 
                     placeholder="nome.cognome@email.com"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pl-10 text-xs text-white focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pl-10 text-base sm:text-xs text-white focus:outline-none focus:border-[#c9b074]" 
                   />
                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
@@ -1249,7 +1249,7 @@ export default function Page() {
                     onChange={(e) => setNewPasswordInput(e.target.value)} 
                     required 
                     placeholder="Minimo 6 caratteri"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-xs text-white focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-base sm:text-xs text-white focus:outline-none focus:border-[#c9b074]" 
                   />
                   <button 
                     type="button"
@@ -1272,7 +1272,7 @@ export default function Page() {
                     onChange={(e) => setConfirmPasswordInput(e.target.value)} 
                     required 
                     placeholder="Ripeti la password"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-xs text-white focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-base sm:text-xs text-white focus:outline-none focus:border-[#c9b074]" 
                   />
                   <button 
                     type="button"
@@ -1326,7 +1326,7 @@ export default function Page() {
                     onChange={(e) => setRecoveryEmail(e.target.value)} 
                     required 
                     placeholder="nome.cognome@email.com"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pl-10 text-xs text-white focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pl-10 text-base sm:text-xs text-white focus:outline-none focus:border-[#c9b074]" 
                   />
                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
@@ -1350,7 +1350,7 @@ export default function Page() {
               <p className="text-xs font-semibold tracking-[0.25em] uppercase mb-1 text-slate-400">
                 Area Allievo
               </p>
-              <h1 className="text-4xl sm:text-5xl font-normal font-playfair text-white">
+              <h1 className="text-3xl sm:text-5xl font-normal font-playfair text-white">
                 Foto di <span className="italic text-[#c9b074]">{currentStudent.name} {currentStudent.surname}</span>
               </h1>
             </div>
@@ -1466,7 +1466,7 @@ export default function Page() {
                             </div>
 
                             {course.photos.length > 0 ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                                 {course.photos.map((photoUrl, pIdx) => {
                                   const isSelected = selectedPhotos.includes(photoUrl);
 
@@ -1497,12 +1497,12 @@ export default function Page() {
 
                                       <div 
                                         onClick={(e) => { e.stopPropagation(); togglePhotoSelection(photoUrl); }}
-                                        className="absolute top-3 left-3 z-10"
+                                        className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10"
                                       >
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                                        <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center transition-all ${
                                           isSelected ? "bg-[#c9b074] text-black shadow-md scale-110" : "bg-black/60 border border-white/40 text-transparent hover:border-white"
                                         }`}>
-                                          <Check size={14} className="stroke-[3]" />
+                                          <Check size={12} className="stroke-[3]" />
                                         </div>
                                       </div>
 
@@ -1515,9 +1515,9 @@ export default function Page() {
                                             `foto-${currentStudent.name}-${event.eventName}-${course.name}-${pIdx + 1}.jpg`
                                           );
                                         }}
-                                        className="absolute top-3 right-3 bg-black/70 hover:bg-[#c9b074] hover:text-black text-white p-2 rounded-full transition-colors shadow-lg z-20 cursor-pointer"
+                                        className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-black/70 hover:bg-[#c9b074] hover:text-black text-white p-1.5 sm:p-2 rounded-full transition-colors shadow-lg z-20 cursor-pointer"
                                       >
-                                        <Download size={13} />
+                                        <Download size={12} />
                                       </button>
                                     </div>
                                   );
@@ -1539,7 +1539,8 @@ export default function Page() {
       ) : (
         <main className="relative z-10 max-w-xl mx-auto px-6 pt-12 pb-24">
           <div className="text-center space-y-4 mb-10">
-            <h1 className="text-4xl sm:text-8xl md:text-7xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
+            {/* TITOLO PRINCIPALE: Dimensioni ottimizzate per restare ben leggibile anche su mobile */}
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
             <p className="text-xs sm:text-sm max-w-md mx-auto font-normal leading-relaxed text-slate-400">
@@ -1566,7 +1567,7 @@ export default function Page() {
                     onChange={(e) => setLoginName(e.target.value)} 
                     required 
                     placeholder="es. Mario"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
                 <div>
@@ -1579,7 +1580,7 @@ export default function Page() {
                     onChange={(e) => setLoginSurname(e.target.value)} 
                     required 
                     placeholder="es. Rossi"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
               </div>
@@ -1595,7 +1596,7 @@ export default function Page() {
                     onChange={(e) => setLoginPassword(e.target.value)} 
                     required 
                     placeholder="••••••••"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
+                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
                   />
                   <button 
                     type="button"
@@ -1804,7 +1805,7 @@ export default function Page() {
                     onChange={(e) => setAdminPasswordInput(e.target.value)}
                     placeholder="••••••••"
                     autoFocus
-                    className={`w-full border rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none transition-colors ${
+                    className={`w-full border rounded-xl px-4 py-3 pr-10 text-base sm:text-sm focus:outline-none transition-colors ${
                       adminPasswordError 
                         ? "border-red-500 bg-black/50 text-white" 
                         : "bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
