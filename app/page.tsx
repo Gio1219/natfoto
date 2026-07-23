@@ -11,11 +11,6 @@ import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
 import { toast } from "sonner";
 
-// Inizializza Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 interface CourseSection {
   name: string;
   photos: string[];
@@ -184,6 +179,11 @@ export default function Page() {
   const [newCourseNames, setNewCourseNames] = useState<{ [key: string]: string }>({});
   const [eventDescInputs, setEventDescInputs] = useState<{ [key: string]: string }>({});
 
+  // Inizializza Supabase
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
   const fetchStudents = async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from("students").select("*");
@@ -302,21 +302,47 @@ export default function Page() {
 
   const handlePasswordRecoverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError("");
     setIsRecovering(true);
 
+    const email = recoveryEmail.trim();
+    if (!email) {
+      toast.error("Inserisci un indirizzo email valido.");
+      setIsRecovering(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/recovery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: recoveryEmail }),
-      });
+      const { data, error } = await supabase
+        .from("students")
+        .select("*")
+        .ilike("email", email)
+        .single();
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Errore durante l'invio.");
+      if (error || !data) {
+        toast.error("Indirizzo email non trovato.");
+        return;
+      }
 
-      toast.success("Email di recupero inviata con successo!");
-    } catch (err: any) {
-      toast.error(err.message || "Errore durante l'invio dell'email.");
+      const student = data as Student;
+
+      try {
+        await fetch("/api/send-confirmation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: student.email?.trim() || email,
+            name: student.name,
+            surname: student.surname,
+            password: newPasswordInput,
+          }),
+        });
+      } catch (mailErr) {
+        console.error("Errore invio email:", mailErr);
+      }
+
+      toast.success("Se l'email è registrata, riceverai le istruzioni per il recupero.");
+      setRecoveryEmail("");
     } finally {
       setIsRecovering(false);
     }
@@ -354,6 +380,20 @@ export default function Page() {
         .eq("id", currentStudent.id);
 
       if (error) throw error;
+
+      try {
+        await fetch("/api/send-confirmation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: studentEmailInput.trim(),
+            name: currentStudent.name,
+            surname: currentStudent.surname,
+          }),
+        });
+      } catch (mailErr) {
+        console.error("Errore invio email:", mailErr);
+      }
 
       setCurrentStudent({ 
         ...currentStudent, 
@@ -805,7 +845,6 @@ export default function Page() {
   return (
     <div className="min-h-screen font-sans antialiased bg-slate-950 text-slate-100 selection:bg-[#c9b074] selection:text-black relative overflow-hidden transition-colors duration-300">
 
-      {/* Sfondi luminosi sfocati (Glow Effects) */}
       <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -816,7 +855,6 @@ export default function Page() {
         }
       `}</style>
 
-      {/* HEADER A TRE COLONNE */}
       <header className="relative z-20 w-full px-4 sm:px-8 py-4 border-b border-[#c9b074]/20 bg-slate-950/80 backdrop-blur-xl flex items-center justify-between gap-4">
         <div className="flex items-center justify-start flex-1">
           {!isAdmin && authStep === 'login' && (
@@ -872,7 +910,6 @@ export default function Page() {
         </div>
       </header>
 
-      {/* ==================== VISTA 1: PANNELLO STAFF ==================== */}
       {isAdmin ? (
         <main className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-24">
           <div className="mb-8">
@@ -1539,7 +1576,6 @@ export default function Page() {
       ) : (
         <main className="relative z-10 max-w-xl mx-auto px-6 pt-12 pb-24">
           <div className="text-center space-y-4 mb-10">
-            {/* TITOLO PRINCIPALE: Dimensioni ottimizzate per restare ben leggibile anche su mobile */}
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
@@ -1633,7 +1669,6 @@ export default function Page() {
         </main>
       )}
 
-      {/* POP-UP FAQ / GUIDA AIUTO PER I GENITORI */}
       {isFaqModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="border border-[#c9b074]/30 rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative shadow-2xl transition-colors backdrop-blur-2xl bg-slate-950/90 text-white">
@@ -1710,7 +1745,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* POP-UP ZOOM */}
       {zoomPhotoUrl && (
         <div 
           className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-between p-4 sm:p-8 animate-fadeIn"
@@ -1773,7 +1807,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* POP-UP LOGIN STAFF ADMIN */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="border border-[#c9b074]/30 rounded-3xl p-8 max-w-sm w-full relative shadow-2xl transition-colors backdrop-blur-2xl bg-slate-950/90 text-white">
