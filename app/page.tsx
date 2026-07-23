@@ -863,10 +863,10 @@ export default function Page() {
           ) : (
             <button 
               onClick={() => setIsFaqModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border rounded-full text-xs font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 border rounded-full text-[11px] sm:text-xs font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
             >
-              <HelpCircle size={12} className="text-[#c9b074]" />
-              <span>Aiuto</span>
+              <HelpCircle size={13} className="text-[#c9b074]" />
+              <span>FAQ / Aiuto</span>
             </button>
           )}
         </div>
@@ -1539,7 +1539,7 @@ export default function Page() {
       ) : (
         <main className="relative z-10 max-w-xl mx-auto px-6 pt-12 pb-24">
           <div className="text-center space-y-4 mb-10">
-            <h1 className="text-7xl sm:text-7xl font-normal leading-[1.05] tracking-tight font-playfair text-white">
+            <h1 className="text-4xl sm:text-6xl md:text-7xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
             <p className="text-xs sm:text-sm max-w-md mx-auto font-normal leading-relaxed text-slate-400">
