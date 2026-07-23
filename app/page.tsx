@@ -1539,7 +1539,7 @@ export default function Page() {
       ) : (
         <main className="relative z-10 max-w-xl mx-auto px-6 pt-12 pb-24">
           <div className="text-center space-y-4 mb-10">
-            <h1 className="text-4xl sm:text-6xl md:text-7xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
+            <h1 className="text-4xl sm:text-8xl md:text-7xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
             <p className="text-xs sm:text-sm max-w-md mx-auto font-normal leading-relaxed text-slate-400">
