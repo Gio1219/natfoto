@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
 import { toast } from "sonner";
 
-// Inizializza Supabase[cite: 3]
+// Inizializza Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -39,7 +39,7 @@ interface Student {
   events: EventSection[];
 }
 
-// Helper per caricare le immagini per il Canvas[cite: 3]
+// Helper per caricare le immagini per il Canvas
 const loadImage = (src: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
@@ -50,7 +50,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
-// Funzione applicazione Watermark[cite: 3]
+// Funzione applicazione Watermark
 const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promise<Blob> => {
   const objectUrl = URL.createObjectURL(file);
 
@@ -816,7 +816,7 @@ export default function Page() {
         }
       `}</style>
 
-      {/* HEADER CORRETTO A TRE COLONNE (SENZA LOGO TAGLIATO) */}
+      {/* HEADER A TRE COLONNE */}
       <header className="relative z-20 w-full px-4 sm:px-8 py-4 border-b border-[#c9b074]/20 bg-slate-950/80 backdrop-blur-xl flex items-center justify-between gap-4">
         <div className="flex items-center justify-start flex-1">
           {!isAdmin && authStep === 'login' && (
@@ -880,7 +880,7 @@ export default function Page() {
               Gestione Allievi
             </h1>
             <p className="text-sm sm:text-base text-slate-400 italic">
-              (Pannello Staff) - Gli allievi sono ordinati automaticamente in ordine alfabetico per cognome[cite: 2, 3].
+              (Pannello Staff) - Gli allievi sono ordinati automaticamente in ordine alfabetico per cognome.
             </p>
           </div>
 
@@ -889,7 +889,7 @@ export default function Page() {
               Aggiungi un allievo
             </h2>
             <p className="text-xs mb-6 font-light text-slate-400">
-              Inserisci i dati per registrare un nuovo allievo nel sistema[cite: 2, 3].
+              Inserisci i dati per registrare un nuovo allievo nel sistema.
             </p>
 
             <form onSubmit={handleCreateStudent} className="space-y-4">
@@ -1539,7 +1539,6 @@ export default function Page() {
       ) : (
         <main className="relative z-10 max-w-xl mx-auto px-6 pt-12 pb-24">
           <div className="text-center space-y-4 mb-10">
-        
             <h1 className="text-7xl sm:text-7.5xl font-normal leading-[1.05] tracking-tight font-playfair text-white">
               Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>

@@ -15,9 +15,11 @@ body {
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  /* Evita overflow orizzontali indesiderati su mobile */
+  overflow-x: hidden; 
 }
 
-/* Header trasparente con spazi corretti */
+/* Header compatto su mobile per lasciare spazio al titolo */
 header {
   width: 100%;
   background: transparent !important;
@@ -26,7 +28,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 1rem;
+  padding: 1rem 1rem; /* Ridotto da 1.5rem a 1rem su mobile */
 }
 
 @media (min-width: 640px) {
