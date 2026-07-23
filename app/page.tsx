@@ -865,8 +865,8 @@ export default function Page() {
               onClick={() => setIsFaqModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 border rounded-full text-xs font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
             >
-              <HelpCircle size={14} className="text-[#c9b074]" />
-              <span>FAQ / Aiuto</span>
+              <HelpCircle size={12} className="text-[#c9b074]" />
+              <span>Aiuto</span>
             </button>
           )}
         </div>
