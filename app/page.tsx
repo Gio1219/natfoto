@@ -368,7 +368,7 @@ export default function Page() {
       setStudentEmailInput("");
       setShowNewPassword(false);
       setShowConfirmPassword(false);
-      toast.success("Password aggiornata con successo!");
+      toast.success("Password aggiornata e email di conferma inviata!");
     } catch {
       setPasswordError("Errore durante il salvataggio dei dati.");
       toast.error("Errore durante il salvataggio");
