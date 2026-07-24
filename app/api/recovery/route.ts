@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       html: `
         <div style="font-family: sans-serif; background-color: #000; color: #fff; padding: 30px; border-radius: 12px;">
           <div style="text-align: center; margin-bottom: 25px;">
-            <img src="https://nuovaaccademiatoscanini.vercel.app/logo.png" alt="Nuova Accademia Toscanini" width="130" style="display: block; margin: 0 auto;" />
+            <img src="https://nat-foto.vercel.app/logo.png" alt="Nuova Accademia Toscanini" width="130" style="display: block; margin: 0 auto;" />
           </div>
           <p>Ciao <strong>${student.name}</strong>,</p>
           <p>Hai richiesto il recupero della password per accedere alla tua galleria privata.</p>

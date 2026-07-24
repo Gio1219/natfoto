@@ -5,7 +5,7 @@ import Image from "next/image";
 import { 
   Lock, LogOut, Plus, Trash2, Key, X, 
   Download, Unlock, CheckSquare, Square, Archive, Check, ZoomIn, FolderPlus,
-  Eye, EyeOff, Mail, ArrowLeft, ChevronDown, HelpCircle
+  Eye, EyeOff, Mail, ArrowLeft, ChevronDown, HelpCircle, Loader2
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
@@ -136,6 +136,7 @@ export default function Page() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [isRecovering, setIsRecovering] = useState(false);
@@ -250,6 +251,7 @@ export default function Page() {
   const handleStudentLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
+    setLoginLoading(true);
 
     try {
       const { data, error } = await supabase
@@ -297,6 +299,8 @@ export default function Page() {
     } catch {
       setLoginError("Si è verificato un errore durante l'accesso.");
       toast.error("Errore di connessione");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -873,7 +877,7 @@ export default function Page() {
             <Image 
               src="/logo.png" 
               alt="N.A.T. Nuova Accademia Toscanini" 
-              width={200} 
+              width={500} 
               height={85} 
               className="h-full w-auto object-contain drop-shadow-[0_4px_13px_rgba(201,176,116,0.15)] brightness-110"
               priority
@@ -1574,25 +1578,30 @@ export default function Page() {
           </div>
         </main>
       ) : (
-        <main className="relative z-10 max-w-xl mx-auto px-6 pt-12 pb-24">
-          <div className="text-center space-y-4 mb-10">
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
-              Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
-            </h1>
-            <p className="text-xs sm:text-sm max-w-md mx-auto font-normal leading-relaxed text-slate-400">
-              Inserisci le credenziali fornite dalla segreteria.
-            </p>
-          </div>
+        <main className="relative z-10 max-w-md mx-auto px-5 pt-12 pb-24">
+          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] min-h-[520px] flex flex-col justify-between">
+            
+            {/* Sezione Intestazione */}
+            <div className="text-center">
+              <h1 className="text-5xl sm:text-5xl font-normal leading-[1.1] tracking-tight font-playfair text-white mb-2">
+                Accedi alla tua <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-400 bg-clip-text text-transparent">Galleria Privata</span>
+              </h1>
+              <p className="text-xs sm:text-sm max-w-md mx-auto font-normal leading-relaxed text-slate-400">
+                Inserisci le credenziali fornite dalla segreteria.
+              </p>
+            </div>
 
-          <div className="border border-[#c9b074]/20 rounded-3xl p-8 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-            <form onSubmit={handleStudentLoginSubmit} className="space-y-4">
-              {loginError && (
-                <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-xl text-xs">
-                  {loginError}
-                </div>
-              )}
+            {/* Form di Login distribuito verticalmente */}
+            <form onSubmit={handleStudentLoginSubmit} className="flex flex-col justify-between flex-1 mt-6">
+              
+              {/* Gruppo dei campi input */}
+              <div className="space-y-4">
+                {loginError && (
+                  <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-xl text-xs">
+                    {loginError}
+                  </div>
+                )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2 text-slate-300">
                     Nome
@@ -1606,6 +1615,7 @@ export default function Page() {
                     className="w-full bg-black/50 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
+
                 <div>
                   <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2 text-slate-300">
                     Cognome
@@ -1619,51 +1629,65 @@ export default function Page() {
                     className="w-full bg-black/50 border border-white/15 rounded-xl p-3 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2 text-slate-300">
-                  Password
-                </label>
-                <div className="relative">
-                  <input 
-                    type={showLoginPassword ? "text" : "password"} 
-                    value={loginPassword} 
-                    onChange={(e) => setLoginPassword(e.target.value)} 
-                    required 
-                    placeholder="••••••••"
-                    className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2 text-slate-300">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type={showLoginPassword ? "text" : "password"} 
+                      value={loginPassword} 
+                      onChange={(e) => setLoginPassword(e.target.value)} 
+                      required 
+                      placeholder="••••••••"
+                      className="w-full bg-black/50 border border-white/15 rounded-xl p-3 pr-10 text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#c9b074]" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <button 
-                type="submit" 
-                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-semibold text-xs py-3.5 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg mt-4 flex items-center justify-center gap-2"
-              >
-                <Unlock size={14} />
-                <span>Accedi alla galleria</span>
-              </button>
-
-              <div className="pt-4 border-t border-white/10 flex flex-col items-center gap-3 text-center">
+              {/* Gruppo del pulsante e link footer */}
+              <div className="mt-6 space-y-4">
                 <button 
-                  type="button"
-                  onClick={() => setAuthStep('forgot-password')}
-                  className="text-xs text-[#c9b074] hover:underline cursor-pointer font-medium"
+                  type="submit" 
+                  disabled={loginLoading}
+                  className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-semibold text-xs py-3.5 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Hai dimenticato la password? Recuperala qui
+                  {loginLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Accesso in corso...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock size={14} />
+                      <span>Accedi alla galleria</span>
+                    </>
+                  )}
                 </button>
-                <p className="text-[11px] text-slate-400 font-light leading-relaxed">
-                  Se non è ancora avvenuto il cambio password andare in segreteria per prendersi la password.
-                </p>
+
+                <div className="pt-4 border-t border-white/10 flex flex-col items-center gap-2 text-center">
+                  <button 
+                    type="button"
+                    onClick={() => setAuthStep('forgot-password')}
+                    className="text-xs text-[#c9b074] hover:underline cursor-pointer font-medium"
+                  >
+                    Hai dimenticato la password? Recuperala qui
+                  </button>
+                  <p className="text-[11px] text-slate-400 font-light leading-relaxed">
+                    Se non è ancora avvenuto il cambio password andare in segreteria per prendersi la password.
+                  </p>
+                </div>
               </div>
+
             </form>
           </div>
         </main>
