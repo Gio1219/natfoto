@@ -42,7 +42,7 @@ export async function POST(request: Request) {
             </div>
             
             <p style="color: #e2e8f0; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
-              Gentile <strong>${name} ${surname}</strong>, di seguito trovi riepilogate le tue credenziali di accesso per consultare e scaricare le foto dei saggi e dei corsi.
+              Gentile <strong>${name} ${surname}</strong>, grazie per aver effettuatto il tuo primo accesso! Di seguito trovi riepilogate le tue credenziali di accesso per consultare e scaricare le foto dei saggi e dei corsi.
             </p>
 
             <div class="card">

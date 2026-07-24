@@ -5,7 +5,8 @@ import Image from "next/image";
 import { 
   Lock, LogOut, Plus, Trash2, Key, X, 
   Download, Unlock, CheckSquare, Square, Archive, Check, ZoomIn, FolderPlus,
-  Eye, EyeOff, Mail, ArrowLeft, ChevronDown, HelpCircle, Loader2
+  Eye, EyeOff, Mail, ArrowLeft, ChevronDown, HelpCircle, Loader2,
+  FileSpreadsheet, FileText, Copy, Share2
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
@@ -161,6 +162,7 @@ export default function Page() {
   
   const [minimizedStudents, setMinimizedStudents] = useState<{ [key: string]: boolean }>({});
   const [staffSearchQuery, setStaffSearchQuery] = useState("");
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState<string | null>(null);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -278,6 +280,7 @@ export default function Page() {
       };
 
       setCurrentStudent(formattedStudent as Student);
+      setSelectedCourseFilter(null);
       
       if (formattedStudent.email) {
         setStudentEmailInput(formattedStudent.email);
@@ -436,6 +439,40 @@ export default function Page() {
       toast.success(`Password resettata: ${newTempPassword}`);
       fetchStudents();
     }
+  };
+
+  const exportStudentsCSV = () => {
+    const headers = ["Nome", "Cognome", "Password"];
+    const rows = students.map(s => [s.name, s.surname, s.password]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "elenco_allievi_password.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Esportazione CSV completata!");
+  };
+
+  const exportStudentsTXT = () => {
+    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Password: ${s.password}`).join("\n");
+    const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "elenco_allievi_password.txt";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success("Esportazione TXT completata!");
+  };
+
+  const copyStudentsToClipboard = () => {
+    const textContent = students.map(s => `${s.name} ${s.surname} - Password: ${s.password}`).join("\n");
+    navigator.clipboard.writeText(textContent);
+    toast.success("Elenco copiato negli appunti!");
   };
 
   const togglePhotoSelection = (photoUrl: string) => {
@@ -922,6 +959,57 @@ export default function Page() {
             </p>
           </div>
 
+          {/* PANNELLO STATISTICHE STAFF */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+            <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Allievi Totali</span>
+              <p className="text-3xl font-playfair font-normal text-white mt-2">{students.length}</p>
+            </div>
+            <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Account Attivati</span>
+              <p className="text-3xl font-playfair font-normal text-[#c9b074] mt-2">
+                {students.filter(s => s.has_changed_password).length} / {students.length}
+              </p>
+            </div>
+            <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Foto Totali Caricate</span>
+              <p className="text-3xl font-playfair font-normal text-white mt-2">
+                {students.reduce((acc, st) => acc + getTotalPhotosCount(st), 0)}
+              </p>
+            </div>
+          </div>
+
+          {/* BOX ESPORTAZIONE ELENCO */}
+          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="text-xl sm:text-2xl font-playfair font-normal text-white mb-1">Esportazione Elenco Segreteria</h3>
+              <p className="text-xs sm:text-sm text-slate-300">Scarica o copia la lista completa con nome, cognome e password provvisorie.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <button 
+                onClick={exportStudentsCSV}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm px-4.5 py-3 rounded-full transition-all cursor-pointer font-medium"
+              >
+                <FileSpreadsheet size={16} />
+                <span>Esporta CSV</span>
+              </button>
+              <button 
+                onClick={exportStudentsTXT}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs sm:text-sm px-4.5 py-3 rounded-full transition-all cursor-pointer font-medium"
+              >
+                <FileText size={16} />
+                <span>Esporta TXT</span>
+              </button>
+              <button 
+                onClick={copyStudentsToClipboard}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs sm:text-sm px-4.5 py-3 rounded-full transition-all cursor-pointer font-medium"
+              >
+                <Copy size={16} />
+                <span>Copia Elenco</span>
+              </button>
+            </div>
+          </div>
+
           <div className="border border-[#c9b074]/20 rounded-4xl p-8 sm:p-10 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300">
             <h2 className="text-3xl sm:text-4xl font-normal mb-2 font-playfair text-white">
               Aggiungi un allievo
@@ -1382,7 +1470,7 @@ export default function Page() {
         </main>
       ) : authStep === 'dashboard' && currentStudent ? (
         <main className="relative z-10 max-w-6xl mx-auto px-6 sm:px-8 pt-12 pb-28 flex-1 w-full">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10 border-b pb-8 border-white/10">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8 border-b pb-8 border-white/10">
             <div>
               <p className="text-xs sm:text-sm font-semibold tracking-[0.25em] uppercase mb-2 text-slate-300">
                 Area Allievo
@@ -1436,7 +1524,10 @@ export default function Page() {
 
           <div className="space-y-12">
             {currentStudent.events.map((event, eIdx) => {
-              const allEventPhotos = event.courses.flatMap((c) => c.photos);
+              const filteredCourses = event.courses.filter(c => selectedCourseFilter === null || c.name === selectedCourseFilter);
+              if (filteredCourses.length === 0) return null;
+
+              const allEventPhotos = filteredCourses.flatMap((c) => c.photos);
               const isAllEventSelected = allEventPhotos.length > 0 && allEventPhotos.every((p) => selectedPhotos.includes(p));
               const isMinimized = minimizedEvents[eIdx];
 
@@ -1480,7 +1571,7 @@ export default function Page() {
 
                   {!isMinimized && (
                     <div className="space-y-10">
-                      {event.courses.map((course, cIdx) => {
+                      {filteredCourses.map((course, cIdx) => {
                         const isAllCourseSelected = course.photos.length > 0 && course.photos.every((p) => selectedPhotos.includes(p));
 
                         return (
@@ -1782,19 +1873,20 @@ export default function Page() {
             </div>
 
             <div className="flex items-center gap-4">
-              {currentStudent && authStep === 'dashboard' && (
-                <button 
-                  onClick={() => togglePhotoSelection(zoomPhotoUrl)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all transform active:scale-95 cursor-pointer ${
-                    selectedPhotos.includes(zoomPhotoUrl)
-                      ? "bg-[#c9b074] text-black"
-                      : "bg-slate-800 text-white hover:bg-slate-700 border border-white/10"
-                  }`}
-                >
-                  <Check size={16} />
-                  <span>{selectedPhotos.includes(zoomPhotoUrl) ? "Selezionata" : "Seleziona"}</span>
-                </button>
-              )}
+              <button 
+                onClick={() => {
+                  const shareText = "Guarda questa foto del mio saggio all'Accademia Toscanini!";
+                  if (navigator.share) {
+                    navigator.share({ title: "Accademia Toscanini", text: shareText, url: zoomPhotoUrl }).catch(() => {});
+                  } else {
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + " " + zoomPhotoUrl)}`, '_blank');
+                  }
+                }}
+                className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm px-5 py-2.5 rounded-full transition-all cursor-pointer"
+              >
+                <Share2 size={16} />
+                <span>Condividi</span>
+              </button>
 
               <button 
                 onClick={() => handleDownloadSinglePhoto(zoomPhotoUrl, "foto-saggio-nat.jpg")}
