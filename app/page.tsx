@@ -1652,7 +1652,7 @@ export default function Page() {
                   <button type="button" onClick={() => setAuthStep('forgot-password')} className="text-xs sm:text-sm text-[#c9b074] hover:underline cursor-pointer font-semibold">
                     Hai dimenticato la password?
                   </button>
-                  <p className="text-[11px] text-slate-300">Rivolgiti in segreteria per il reset.</p>
+                  <p className="text-[11px] text-slate-300">Rivolgiti in segreteria per il primo accesso.</p>
                 </div>
               </form>
             </div>
