@@ -1748,6 +1748,14 @@ export default function Page() {
                 <h3 className="font-bold text-white mb-1 font-playfair">3. Recupero Password</h3>
                 <p>Usa il link di recupero nella schermata di login oppure contatta la segreteria.</p>
               </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h3 className="font-bold text-white mb-1 font-playfair">4. Problemi con l'Accesso</h3>
+                <p>Se hai problemi con l'accesso, contatta la segreteria per assistenza.</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h3 className="font-bold text-white mb-1 font-playfair">5. Scaricamento Foto</h3>
+                <p>Per il download delle foto, seleziona l'opzione "Scarica" nell'anteprima della foto.</p>
+              </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 text-center">
               <button onClick={() => setIsFaqModalOpen(false)} className="bg-[#c9b074] text-black font-bold text-xs sm:text-sm py-3 px-6 rounded-full cursor-pointer shadow">
