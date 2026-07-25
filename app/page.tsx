@@ -1585,7 +1585,7 @@ export default function Page() {
         <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-10 lg:px-12 py-8 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20">
           <div className="w-full lg:w-7/12 flex flex-col items-center lg:items-start text-center lg:text-left space-y-6">
             <span className="text-xs font-semibold tracking-[0.4em] uppercase text-[#c9b074]">NUOVA ACCADEMIA TOSCANINI</span>
-            <h1 className="text-6xl sm:text-6xl lg:text-8xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
+            <h1 className="text-5xl sm:text-6xl lg:text-8xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <br />
               <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-300 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
