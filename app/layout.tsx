@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "Galleria N.A.T. - Nuova Accademia Toscanini",
   description: "Galleria privata protetta per gli allievi della Nuova Accademia Toscanini",
   icons: {
-    icon: "/logo.png"
+    icon: "/logoufficiale.png"
   },
   manifest: "/manifest.json",
   appleWebApp: {
