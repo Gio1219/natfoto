@@ -17,6 +17,9 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Galleria N.A.T. - Nuova Accademia Toscanini",
   description: "Galleria privata protetta per gli allievi della Nuova Accademia Toscanini",
+  icons: {
+    icon: "/logo.png"
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
