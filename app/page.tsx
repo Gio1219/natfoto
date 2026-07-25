@@ -255,7 +255,8 @@ export default function Page() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPasswordInput === "nat-admin") {
+    const configuredAdminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "nat-admin";
+    if (adminPasswordInput === configuredAdminPassword) {
       setIsAdmin(true);
       setIsModalOpen(false);
       setAdminPasswordInput("");
@@ -457,7 +458,7 @@ export default function Page() {
     }
   };
 
-  const handleResetStudentPassword = async (studentId: string, studentName: string, studentSurname: string) => {
+  const handleResetStudentPassword = async (studentId: string, studentName: string, studentSurname: string, studentEmail?: string) => {
     const randomNums = Math.floor(Math.random() * 900 + 100);
     const letters = "abcdefghjkmnpqrstuvwxyz"; 
     const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
@@ -470,15 +471,37 @@ export default function Page() {
 
     if (error) {
       toast.error(`Errore: ${error.message}`);
-    } else {
-      toast.success(`Password resettata: ${newTempPassword}`);
-      fetchStudents();
+      return;
     }
+
+    // Invio automatico dell'email all'indirizzo configurato sull'account dell'allievo
+    if (studentEmail && studentEmail.trim() !== "") {
+      try {
+        await fetch("/api/send-credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: studentEmail.trim(),
+            name: studentName,
+            surname: studentSurname,
+            password: newTempPassword,
+          }),
+        });
+        toast.success(`Password rigenerata e inviata a ${studentEmail}`);
+      } catch (mailErr) {
+        console.error("Errore invio email:", mailErr);
+        toast.warning("Password rigenerata, ma c'è stato un problema nell'invio dell'email.");
+      }
+    } else {
+      toast.warning("Password rigenerata, ma l'allievo non ha un'email configurata.");
+    }
+    
+    fetchStudents();
   };
 
   const exportStudentsCSV = () => {
     const headers = ["Nome", "Cognome", "Password"];
-    const rows = students.map(s => [s.name, s.surname, s.password]);
+    const rows = students.map(s => [s.name, s.surname, s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -491,7 +514,7 @@ export default function Page() {
   };
 
   const exportStudentsTXT = () => {
-    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Password: ${s.password}`).join("\n");
+    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
     const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -505,7 +528,7 @@ export default function Page() {
   };
 
   const copyStudentsToClipboard = () => {
-    const textContent = students.map(s => `${s.name} ${s.surname} - Password: ${s.password}`).join("\n");
+    const textContent = students.map(s => `${s.name} ${s.surname} - Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
     navigator.clipboard.writeText(textContent);
     toast.success("Elenco copiato negli appunti!");
   };
@@ -974,7 +997,7 @@ export default function Page() {
           <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-xl sm:text-2xl font-playfair font-normal text-white mb-1">Esportazione Elenco Segreteria</h3>
-              <p className="text-xs sm:text-sm text-slate-300">Scarica o copia la lista completa con nome, cognome e password provvisorie.</p>
+              <p className="text-xs sm:text-sm text-slate-300">Scarica o copia la lista completa.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <button 
@@ -1111,7 +1134,13 @@ export default function Page() {
                       <div className="flex flex-col gap-1 text-xs sm:text-sm font-mono mt-2 text-slate-300">
                         <div className="flex items-center gap-2">
                           <Key size={14} />
-                          <span>Password: {student.password}</span>
+                          <span>
+                            Password: {student.has_changed_password ? (
+                              <span className="text-[#c9b074] italic font-sans font-medium">[Password Definitiva Personalizzata dall'Allievo]</span>
+                            ) : (
+                              <span>{student.password}</span>
+                            )}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-200">
                           <Mail size={14} />
@@ -1123,11 +1152,11 @@ export default function Page() {
                     <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <button 
-                          onClick={() => handleResetStudentPassword(student.id, student.name, student.surname)}
+                          onClick={() => handleResetStudentPassword(student.id, student.name, student.surname, student.email)}
                           className="flex items-center gap-1.5 border border-[#c9b074]/40 text-[#c9b074] hover:bg-[#c9b074]/10 text-xs px-3.5 py-2 rounded-full transition-all active:scale-95 cursor-pointer font-medium"
                         >
                           <Key size={14} />
-                          <span>Rigenera</span>
+                          <span>Rigenera e Invia Email</span>
                         </button>
                         <button 
                           onClick={() => handleDeleteStudent(student.id)}
