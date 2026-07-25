@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     const data = await resend.emails.send({
       from: "Nuova Accademia Toscanini <onboarding@resend.dev>", // Sostituire con il dominio verificato in produzione (es. segreteria@tuodominio.it)
       to: [email],
-      subject: "Credenziali di Accesso - Galleria Saggi N.A.T.",
+      subject: "Conferma attivazione account - Galleria Privata N.A.T.",
       html: htmlContent,
     });
 

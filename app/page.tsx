@@ -330,23 +330,44 @@ export default function Page() {
 
       const student = data as Student;
 
+      const randomNums = Math.floor(Math.random() * 900 + 100);
+      const letters = "abcdefghjkmnpqrstuvwxyz"; 
+      const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
+      const newTempPassword = `${student.name.toLowerCase().trim()}.${student.surname.toLowerCase().trim()}.${randomNums}${randomLets}`;
+
+      const { error: updateError } = await supabase
+        .from("students")
+        .update({ 
+          password: newTempPassword, 
+          has_changed_password: false 
+        })
+        .eq("id", student.id);
+
+      if (updateError) {
+        toast.error("Errore durante il reset della password.");
+        return;
+      }
+
       try {
-        await fetch("/api/send-confirmation", {
+        await fetch("/api/send-credentials", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: student.email?.trim() || email,
             name: student.name,
             surname: student.surname,
-            password: newPasswordInput,
+            password: newTempPassword,
           }),
         });
       } catch (mailErr) {
         console.error("Errore invio email:", mailErr);
       }
 
-      toast.success("Se l'email è registrata, riceverai le istruzioni per il recupero.");
+      toast.success("Ti è stata inviata un'email con la nuova password temporanea.");
       setRecoveryEmail("");
+      setAuthStep('login');
+    } catch {
+      toast.error("Si è verificato un errore durante il recupero.");
     } finally {
       setIsRecovering(false);
     }
@@ -386,7 +407,7 @@ export default function Page() {
       if (error) throw error;
 
       try {
-        await fetch("/api/send-confirmation", {
+        await fetch("/api/send-credentials", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -959,7 +980,6 @@ export default function Page() {
             </p>
           </div>
 
-          {/* PANNELLO STATISTICHE STAFF */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
             <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
               <span className="text-xs uppercase tracking-widest text-slate-400">Allievi Totali</span>
@@ -979,7 +999,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* BOX ESPORTAZIONE ELENCO */}
           <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-xl sm:text-2xl font-playfair font-normal text-white mb-1">Esportazione Elenco Segreteria</h3>
