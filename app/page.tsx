@@ -6,7 +6,7 @@ import {
   Lock, LogOut, Plus, Trash2, Key, X, 
   Download, Unlock, CheckSquare, Square, Archive, Check, ZoomIn, FolderPlus,
   Eye, EyeOff, Mail, ArrowLeft, ChevronDown, HelpCircle, Loader2,
-  FileSpreadsheet, FileText, Copy, Share2
+  FileSpreadsheet, FileText, Copy, Share2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
@@ -154,12 +154,15 @@ export default function Page() {
   const [adminPasswordError, setAdminPasswordError] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
+  // Gestione Zoom e Playlist mobile
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
+  const [activePhotosList, setActivePhotosList] = useState<string[]>([]);
+  const [zoomCurrentIndex, setZoomCurrentIndex] = useState<number>(0);
+
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [isZipping, setIsZipping] = useState(false);
 
   const [minimizedEvents, setMinimizedEvents] = useState<{ [key: number]: boolean }>({});
-  
   const [minimizedStudents, setMinimizedStudents] = useState<{ [key: string]: boolean }>({});
   const [staffSearchQuery, setStaffSearchQuery] = useState("");
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string | null>(null);
@@ -218,18 +221,36 @@ export default function Page() {
     fetchStudents();
   }, []);
 
+  const openZoomWithList = (photoUrl: string, list: string[]) => {
+    setActivePhotosList(list);
+    const index = list.indexOf(photoUrl);
+    setZoomCurrentIndex(index !== -1 ? index : 0);
+    setZoomPhotoUrl(photoUrl);
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
+
+  const handleNextPhoto = () => {
+    if (activePhotosList.length === 0) return;
+    const nextIndex = (zoomCurrentIndex + 1) % activePhotosList.length;
+    setZoomCurrentIndex(nextIndex);
+    setZoomPhotoUrl(activePhotosList[nextIndex]);
+    if (navigator.vibrate) navigator.vibrate(15);
+  };
+
+  const handlePrevPhoto = () => {
+    if (activePhotosList.length === 0) return;
+    const prevIndex = (zoomCurrentIndex - 1 + activePhotosList.length) % activePhotosList.length;
+    setZoomCurrentIndex(prevIndex);
+    setZoomPhotoUrl(activePhotosList[prevIndex]);
+    if (navigator.vibrate) navigator.vibrate(15);
+  };
+
   const toggleMinimizeEvent = (eIdx: number) => {
-    setMinimizedEvents(prev => ({
-      ...prev,
-      [eIdx]: !prev[eIdx]
-    }));
+    setMinimizedEvents(prev => ({ ...prev, [eIdx]: !prev[eIdx] }));
   };
 
   const toggleMinimizeStudent = (studentId: string) => {
-    setMinimizedStudents(prev => ({
-      ...prev,
-      [studentId]: !prev[studentId]
-    }));
+    setMinimizedStudents(prev => ({ ...prev, [studentId]: !prev[studentId] }));
   };
 
   const handleAdminLogin = (e: React.FormEvent) => {
@@ -329,7 +350,6 @@ export default function Page() {
       }
 
       const student = data as Student;
-
       const randomNums = Math.floor(Math.random() * 900 + 100);
       const letters = "abcdefghjkmnpqrstuvwxyz"; 
       const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
@@ -337,10 +357,7 @@ export default function Page() {
 
       const { error: updateError } = await supabase
         .from("students")
-        .update({ 
-          password: newTempPassword, 
-          has_changed_password: false 
-        })
+        .update({ password: newTempPassword, has_changed_password: false })
         .eq("id", student.id);
 
       if (updateError) {
@@ -407,7 +424,7 @@ export default function Page() {
       if (error) throw error;
 
       try {
-        await fetch("/api/send-credentials", {
+        await fetch("/api/send-confirmation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -448,10 +465,7 @@ export default function Page() {
 
     const { error } = await supabase
       .from("students")
-      .update({ 
-        password: newTempPassword, 
-        has_changed_password: false 
-      })
+      .update({ password: newTempPassword, has_changed_password: false })
       .eq("id", studentId);
 
     if (error) {
@@ -497,12 +511,14 @@ export default function Page() {
   };
 
   const togglePhotoSelection = (photoUrl: string) => {
+    if (navigator.vibrate) navigator.vibrate(25);
     setSelectedPhotos((prev) =>
       prev.includes(photoUrl) ? prev.filter((url) => url !== photoUrl) : [...prev, photoUrl]
     );
   };
 
   const toggleSelectAllPhotos = (photosList: string[]) => {
+    if (navigator.vibrate) navigator.vibrate(30);
     const allSelected = photosList.every((url) => selectedPhotos.includes(url));
     if (allSelected) {
       setSelectedPhotos((prev) => prev.filter((url) => !photosList.includes(url)));
@@ -513,6 +529,7 @@ export default function Page() {
   };
 
   const handleDownloadSinglePhoto = async (photoUrl: string, fileName: string) => {
+    if (navigator.vibrate) navigator.vibrate(40);
     try {
       const response = await fetch(photoUrl);
       const blob = await response.blob();
@@ -534,6 +551,7 @@ export default function Page() {
 
   const downloadZip = async (photosToDownload: string[], zipFilename: string) => {
     if (photosToDownload.length === 0) return;
+    if (navigator.vibrate) navigator.vibrate(50);
     setIsZipping(true);
     toast.info("Generazione archivio ZIP in corso...");
 
@@ -553,11 +571,7 @@ export default function Page() {
         }
       }
 
-      const zipContent = await zip.generateAsync({ 
-        type: "blob", 
-        mimeType: "application/zip" 
-      });
-
+      const zipContent = await zip.generateAsync({ type: "blob", mimeType: "application/zip" });
       const zipBlob = new Blob([zipContent], { type: "application/zip" });
       const downloadUrl = URL.createObjectURL(zipBlob);
 
@@ -582,7 +596,6 @@ export default function Page() {
     if (!newNome || !newCognome) return;
 
     const initials = `${newNome[0] || ""}${newCognome[0] || ""}`.toUpperCase();
-
     const coursesList = newCorsiInput
       .split(",")
       .map((c) => c.trim())
@@ -592,7 +605,6 @@ export default function Page() {
     const randomNums = Math.floor(Math.random() * 900 + 100);
     const letters = "abcdefghjkmnpqrstuvwxyz"; 
     const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
-
     const generatedPassword = `${newNome.toLowerCase().trim()}.${newCognome.toLowerCase().trim()}.${randomNums}${randomLets}`;
     
     const newStudent = {
@@ -613,7 +625,6 @@ export default function Page() {
     };
 
     const { error } = await supabase.from("students").insert([newStudent]);
-
     if (error) {
       toast.error(`Errore: ${error.message}`);
       return;
@@ -663,22 +674,13 @@ export default function Page() {
     const targetStudent = students.find((s) => s.id === studentId);
     if (!targetStudent) return;
 
-    const newDesc = eventDescInputs[key] !== undefined 
-      ? eventDescInputs[key] 
-      : (targetStudent.events[eventIndex]?.description || "");
-
+    const newDesc = eventDescInputs[key] !== undefined ? eventDescInputs[key] : (targetStudent.events[eventIndex]?.description || "");
     const updatedEvents = targetStudent.events.map((ev, eIdx) => {
-      if (eIdx === eventIndex) {
-        return { ...ev, description: newDesc };
-      }
+      if (eIdx === eventIndex) return { ...ev, description: newDesc };
       return ev;
     });
 
-    const { error } = await supabase
-      .from("students")
-      .update({ events: updatedEvents })
-      .eq("id", studentId);
-
+    const { error } = await supabase.from("students").update({ events: updatedEvents }).eq("id", studentId);
     if (!error) {
       toast.success("Descrizione aggiornata!");
       fetchStudents();
@@ -689,12 +691,10 @@ export default function Page() {
 
   const handleDeleteEvent = async (studentId: string, eventIndex: number) => {
     if (!confirm("Sei sicuro di voler eliminare questo intero evento?")) return;
-
     const targetStudent = students.find((s) => s.id === studentId);
     if (!targetStudent) return;
 
     const updatedEvents = targetStudent.events.filter((_, idx) => idx !== eventIndex);
-
     const updatePayload: any = { events: updatedEvents };
     if (updatedEvents.length > 0 && updatedEvents[0].courses) {
       updatePayload.courses = updatedEvents[0].courses;
@@ -702,11 +702,7 @@ export default function Page() {
       updatePayload.courses = [];
     }
 
-    const { error } = await supabase
-      .from("students")
-      .update(updatePayload)
-      .eq("id", studentId);
-
+    const { error } = await supabase.from("students").update(updatePayload).eq("id", studentId);
     if (error) {
       toast.error(`Errore: ${error.message}`);
     } else {
@@ -733,11 +729,7 @@ export default function Page() {
       return ev;
     });
 
-    const { error } = await supabase
-      .from("students")
-      .update({ events: updatedEvents })
-      .eq("id", studentId);
-
+    const { error } = await supabase.from("students").update({ events: updatedEvents }).eq("id", studentId);
     if (!error) {
       setNewCourseNames({ ...newCourseNames, [key]: "" });
       toast.success("Corso aggiunto!");
@@ -747,15 +739,10 @@ export default function Page() {
 
   const handleFileUpload = async (studentId: string, eventIndex: number, courseIndex: number, files: FileList | null) => {
     if (!files || files.length === 0) return;
-
     const targetStudent = students.find((s) => s.id === studentId);
     if (!targetStudent) return;
 
-    const studentFolder = `${targetStudent.name}_${targetStudent.surname}`
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, "_");
-
+    const studentFolder = `${targetStudent.name}_${targetStudent.surname}`.toLowerCase().trim().replace(/\s+/g, "_");
     const fileArray = Array.from(files);
     const uploadedUrls: string[] = [];
     toast.info("Elaborazione e watermark foto in corso...");
@@ -767,17 +754,11 @@ export default function Page() {
 
         const { error: uploadError } = await supabase.storage
           .from("foto-allievi")
-          .upload(fileName, watermarkedBlob, {
-            contentType: "image/jpeg",
-            upsert: true,
-          });
+          .upload(fileName, watermarkedBlob, { contentType: "image/jpeg", upsert: true });
 
         if (uploadError) continue;
 
-        const { data: urlData } = supabase.storage
-          .from("foto-allievi")
-          .getPublicUrl(fileName);
-
+        const { data: urlData } = supabase.storage.from("foto-allievi").getPublicUrl(fileName);
         if (urlData?.publicUrl) {
           uploadedUrls.push(urlData.publicUrl);
         }
@@ -809,11 +790,7 @@ export default function Page() {
       updatePayload.courses = updatedEvents[0].courses;
     }
 
-    const { error } = await supabase
-      .from("students")
-      .update(updatePayload)
-      .eq("id", studentId);
-
+    const { error } = await supabase.from("students").update(updatePayload).eq("id", studentId);
     if (!error) {
       toast.success("Foto caricate con successo!");
       fetchStudents();
@@ -834,7 +811,6 @@ export default function Page() {
     if (!targetStudent) return;
 
     const photoUrlToDelete = targetStudent.events[eventIndex]?.courses[courseIndex]?.photos[photoIndex];
-
     if (photoUrlToDelete && photoUrlToDelete.includes("/foto-allievi/")) {
       const pathParts = photoUrlToDelete.split("/foto-allievi/");
       if (pathParts[1]) {
@@ -862,11 +838,7 @@ export default function Page() {
       updatePayload.courses = updatedEvents[0].courses;
     }
 
-    const { error } = await supabase
-      .from("students")
-      .update(updatePayload)
-      .eq("id", studentId);
-
+    const { error } = await supabase.from("students").update(updatePayload).eq("id", studentId);
     if (!error) {
       toast.success("Foto rimossa");
       fetchStudents();
@@ -889,8 +861,8 @@ export default function Page() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="w-56 h-14 bg-white/10 rounded-xl animate-pulse mb-8" />
         <div className="w-full max-w-md space-y-4">
           <div className="h-14 bg-white/10 rounded-xl animate-pulse" />
@@ -914,21 +886,21 @@ export default function Page() {
         }
       `}</style>
 
-      <header className="relative z-20 w-full px-6 sm:px-10 py-5 border-b border-[#c9b074]/20 bg-slate-950/80 backdrop-blur-xl flex items-center justify-between gap-4 shrink-0">
+      <header className="relative z-20 w-full px-4 sm:px-10 py-4 border-b border-[#c9b074]/20 bg-slate-950/90 backdrop-blur-xl flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center justify-start flex-1">
           {!isAdmin && authStep === 'login' && (
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold tracking-[0.25em] uppercase text-slate-300 hover:text-white transition-all transform active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 text-xs sm:text-sm font-semibold tracking-[0.25em] uppercase text-slate-300 hover:text-white transition-all p-2 rounded-xl active:scale-95 cursor-pointer"
             >
               <Lock size={15} className="text-[#c9b074]" />
-              <span className="hidden sm:inline">Area Riservata</span>
+              <span className="hidden sm:inline">Staff</span>
             </button>
           )}
         </div>
 
         <div className="flex items-center justify-center shrink-0">
-          <div className="relative h-14 sm:h-20 w-auto flex items-center justify-center">
+          <div className="relative h-12 sm:h-20 w-auto flex items-center justify-center">
             <Image 
               src="/logo.png" 
               alt="N.A.T. Nuova Accademia Toscanini" 
@@ -940,47 +912,47 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end flex-1 gap-3">
+        <div className="flex items-center justify-end flex-1 gap-2">
           {isAdmin ? (
             <button 
               onClick={() => { setIsAdmin(false); toast.info("Uscito dall'area staff"); }}
-              className="flex items-center gap-2 px-5 py-2.5 border rounded-full text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white"
+              className="flex items-center gap-2 px-4 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer bg-white/5 hover:bg-white/10 border-white/15 text-white"
             >
-              <LogOut size={16} className="text-red-400" />
+              <LogOut size={15} className="text-red-400" />
               <span className="hidden sm:inline">Esci</span>
             </button>
           ) : authStep === 'dashboard' && currentStudent ? (
             <button 
               onClick={() => { setCurrentStudent(null); setAuthStep('login'); setSelectedPhotos([]); toast.info("Sessione chiusa"); }}
-              className="flex items-center gap-2 px-5 py-2.5 border rounded-full text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer shadow-sm bg-red-600/20 hover:bg-red-600/30 border-red-500/30 text-white"
+              className="flex items-center gap-2 px-3.5 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer bg-red-600/20 hover:bg-red-600/30 border-red-500/30 text-white"
             >
-              <LogOut size={16} className="text-red-400" />
-              <span>Esci ({currentStudent.name})</span>
+              <LogOut size={15} className="text-red-400" />
+              <span className="truncate max-w-[100px] sm:max-w-none">Esci ({currentStudent.name})</span>
             </button>
           ) : (
             <button 
               onClick={() => setIsFaqModalOpen(true)}
-              className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 shadow-sm bg-white/5 hover:bg-white/10 border-white/15 text-white cursor-pointer"
             >
               <HelpCircle size={15} className="text-[#c9b074]" />
-              <span>FAQ / Aiuto</span>
+              <span className="hidden sm:inline">FAQ / Aiuto</span>
             </button>
           )}
         </div>
       </header>
 
       {isAdmin ? (
-        <main className="relative z-10 max-w-6xl mx-auto px-6 sm:px-8 pt-12 pb-28 flex-1 w-full">
+        <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-28 flex-1 w-full">
           <div className="mb-10">
-            <h1 className="text-4xl sm:text-6xl font-normal font-playfair text-white mb-3 leading-tight">
+            <h1 className="text-3xl sm:text-6xl font-normal font-playfair text-white mb-3 leading-tight">
               Gestione Allievi
             </h1>
-            <p className="text-base sm:text-lg text-slate-300 italic">
+            <p className="text-sm sm:text-lg text-slate-300 italic">
               (Pannello Staff) - Gli allievi sono ordinati automaticamente in ordine alfabetico per cognome.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-10">
             <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
               <span className="text-xs uppercase tracking-widest text-slate-400">Allievi Totali</span>
               <p className="text-3xl font-playfair font-normal text-white mt-2">{students.length}</p>
@@ -999,131 +971,113 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-xl sm:text-2xl font-playfair font-normal text-white mb-1">Esportazione Elenco Segreteria</h3>
               <p className="text-xs sm:text-sm text-slate-300">Scarica o copia la lista completa con nome, cognome e password provvisorie.</p>
             </div>
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <button 
                 onClick={exportStudentsCSV}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm px-4.5 py-3 rounded-full transition-all cursor-pointer font-medium"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm px-4 py-3 rounded-full transition-all cursor-pointer font-medium"
               >
                 <FileSpreadsheet size={16} />
-                <span>Esporta CSV</span>
+                <span>CSV</span>
               </button>
               <button 
                 onClick={exportStudentsTXT}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs sm:text-sm px-4.5 py-3 rounded-full transition-all cursor-pointer font-medium"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs sm:text-sm px-4 py-3 rounded-full transition-all cursor-pointer font-medium"
               >
                 <FileText size={16} />
-                <span>Esporta TXT</span>
+                <span>TXT</span>
               </button>
               <button 
                 onClick={copyStudentsToClipboard}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs sm:text-sm px-4.5 py-3 rounded-full transition-all cursor-pointer font-medium"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs sm:text-sm px-4 py-3 rounded-full transition-all cursor-pointer font-medium"
               >
                 <Copy size={16} />
-                <span>Copia Elenco</span>
+                <span>Copia</span>
               </button>
             </div>
           </div>
 
-          <div className="border border-[#c9b074]/20 rounded-4xl p-8 sm:p-10 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300">
-            <h2 className="text-3xl sm:text-4xl font-normal mb-2 font-playfair text-white">
+          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-10 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl">
+            <h2 className="text-2xl sm:text-4xl font-normal mb-2 font-playfair text-white">
               Aggiungi un allievo
             </h2>
-            <p className="text-sm mb-8 font-light text-slate-300">
+            <p className="text-xs sm:text-sm mb-6 font-light text-slate-300">
               Inserisci i dati per registrare un nuovo allievo nel sistema.
             </p>
 
-            <form onSubmit={handleCreateStudent} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <form onSubmit={handleCreateStudent} className="space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    NOME
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">NOME</label>
                   <input 
                     type="text" 
                     value={newNome}
                     onChange={(e) => setNewNome(e.target.value)}
                     placeholder="Mario"
                     required
-                    className="w-full border rounded-2xl px-5 py-3.5 text-lg sm:text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    COGNOME
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">COGNOME</label>
                   <input 
                     type="text" 
                     value={newCognome}
                     onChange={(e) => setNewCognome(e.target.value)}
                     placeholder="Rossi"
                     required
-                    className="w-full border rounded-2xl px-5 py-3.5 text-lg sm:text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    EMAIL (FACOLTATIVA)
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EMAIL (FACOLTATIVA)</label>
                   <input 
                     type="email" 
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="mario.rossi@email.com"
-                    className="w-full border rounded-2xl px-5 py-3.5 text-lg sm:text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    placeholder="email@libero.it"
+                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    EVENTO / SAGGIO
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EVENTO / SAGGIO</label>
                   <input 
                     type="text" 
                     value={newEventoInput}
                     onChange={(e) => setNewEventoInput(e.target.value)}
-                    placeholder="Saggio Fine Anno 2026"
+                    placeholder="Saggio 2026"
                     required
-                    className="w-full border rounded-2xl px-5 py-3.5 text-lg sm:text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    DESCRIZIONE EVENTO (FACOLTATIVA)
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">DESCRIZIONE EVENTO</label>
                   <input 
                     type="text" 
                     value={newEventoDescInput}
                     onChange={(e) => setNewEventoDescInput(e.target.value)}
-                    placeholder="Es. Concerto di fine anno accademico..."
-                    className="w-full border rounded-2xl px-5 py-3.5 text-lg sm:text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    placeholder="Concerto accademico..."
+                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    CORSI (SEPARATI DA VIRGOLA)
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">CORSI (SEPARATI DA VIRGOLA)</label>
                   <input 
                     type="text" 
                     value={newCorsiInput}
                     onChange={(e) => setNewCorsiInput(e.target.value)}
-                    placeholder="es. Pianoforte, Canto"
-                    className="w-full border rounded-2xl px-5 py-3.5 text-lg sm:text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    placeholder="Pianoforte, Canto"
+                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
               </div>
-
               <button 
                 type="submit"
-                className="bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm sm:text-base py-3.5 px-8 rounded-full flex items-center gap-2.5 transition-all transform active:scale-95 cursor-pointer mt-4 shadow-lg"
+                className="w-full sm:w-auto bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 px-8 rounded-full flex items-center justify-center gap-2.5 transition-all active:scale-95 cursor-pointer shadow-lg mt-4"
               >
                 <Plus size={18} />
                 <span>Crea allievo</span>
@@ -1134,200 +1088,179 @@ export default function Page() {
           <div className="mb-8">
             <input
               type="text"
-              placeholder="Cerca allievo per nome, cognome o email..."
+              placeholder="Cerca allievo..."
               value={staffSearchQuery}
               onChange={(e) => setStaffSearchQuery(e.target.value)}
-              className="w-full px-6 py-4 rounded-3xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/20 text-white placeholder-slate-400 focus:outline-none focus:border-[#c9b074] transition-colors text-lg sm:text-base shadow-xl"
+              className="w-full px-5 py-3.5 rounded-3xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/20 text-white placeholder-slate-400 focus:outline-none focus:border-[#c9b074] transition-colors text-sm shadow-xl"
             />
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-6">
             {filteredStaffStudents.map((student) => {
               const isStudentMinimized = minimizedStudents[student.id];
-
               return (
-                <div key={student.id} className="border border-[#c9b074]/20 rounded-4xl p-8 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all">
+                <div key={student.id} className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl transition-all">
                   <div 
-                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 cursor-pointer select-none"
+                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer select-none"
                     onClick={() => toggleMinimizeStudent(student.id)}
                   >
                     <div>
-                      <h3 className="text-3xl sm:text-4xl font-normal font-playfair text-white">
+                      <h3 className="text-2xl sm:text-3xl font-normal font-playfair text-white">
                         {student.surname} {student.name}
                       </h3>
-                      <div className="flex flex-col gap-1.5 text-sm font-mono mt-2 text-slate-300">
+                      <div className="flex flex-col gap-1 text-xs sm:text-sm font-mono mt-2 text-slate-300">
                         <div className="flex items-center gap-2">
-                          <Key size={15} />
-                          <span>Password provvisoria: {student.password}</span>
+                          <Key size={14} />
+                          <span>Password: {student.password}</span>
                         </div>
                         <div className="flex items-center gap-2 text-slate-200">
-                          <Mail size={15} />
-                          <span>Email: {student.email || "Non ancora registrata"}</span>
+                          <Mail size={14} />
+                          <span>Email: {student.email || "Non registrata"}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                      <div className="flex flex-wrap items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={() => handleResetStudentPassword(student.id, student.name, student.surname)}
-                          className="flex items-center gap-2 border border-[#c9b074]/40 text-[#c9b074] hover:bg-[#c9b074]/10 text-xs sm:text-sm px-4.5 py-2.5 rounded-full transition-all transform active:scale-95 cursor-pointer font-medium"
+                          className="flex items-center gap-1.5 border border-[#c9b074]/40 text-[#c9b074] hover:bg-[#c9b074]/10 text-xs px-3.5 py-2 rounded-full transition-all active:scale-95 cursor-pointer font-medium"
                         >
-                          <Key size={15} />
-                          <span className="hidden md:inline">Rigenera Password</span>
+                          <Key size={14} />
+                          <span>Rigenera</span>
                         </button>
-
                         <button 
                           onClick={() => handleDeleteStudent(student.id)}
-                          className="flex items-center gap-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs sm:text-sm px-4.5 py-2.5 rounded-full transition-all transform active:scale-95 cursor-pointer font-medium"
+                          className="flex items-center gap-1.5 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-3.5 py-2 rounded-full transition-all active:scale-95 cursor-pointer font-medium"
                         >
-                          <Trash2 size={15} />
-                          <span className="hidden md:inline">Elimina</span>
+                          <Trash2 size={14} />
+                          <span>Elimina</span>
                         </button>
                       </div>
-
-                      <button 
-                        type="button"
-                        aria-label={isStudentMinimized ? "Espandi" : "Minimizza"}
-                        className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-200 transition-colors shrink-0"
-                      >
-                        <ChevronDown 
-                          size={24} 
-                          className={`transform transition-transform duration-300 text-[#c9b074] ${isStudentMinimized ? "rotate-0" : "rotate-180"}`} 
-                        />
-                      </button>
+                      <div className="p-2 rounded-full bg-white/5 text-[#c9b074]">
+                        <ChevronDown size={20} className={`transform transition-transform duration-300 ${isStudentMinimized ? "rotate-0" : "rotate-180"}`} />
+                      </div>
                     </div>
                   </div>
 
                   {!isStudentMinimized && (
-                    <div className="mt-8 pt-8 border-t border-white/15 space-y-8 animate-fadeIn">
-                      <div className="mb-8 p-6 rounded-3xl bg-white/5 border border-white/10 space-y-4 backdrop-blur-md">
-                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="mt-6 pt-6 border-t border-white/15 space-y-6 animate-fadeIn">
+                      <div className="p-4 sm:p-6 rounded-3xl bg-white/5 border border-white/10 space-y-3">
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
                           <input 
                             type="text"
                             placeholder="Nome nuovo evento..."
                             value={newEventNames[student.id] || ""}
                             onChange={(e) => setNewEventNames({ ...newEventNames, [student.id]: e.target.value })}
-                            className="w-full sm:flex-1 border rounded-2xl px-5 py-3 text-lg sm:text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                            className="w-full sm:flex-1 border rounded-2xl px-4 py-2.5 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                           />
                           <button 
                             onClick={() => handleAddEvent(student.id)}
-                            className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white font-bold text-sm px-6 py-3 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer shadow-md"
+                            className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                           >
                             <FolderPlus size={16} className="text-[#c9b074]" />
                             <span>Aggiungi Evento</span>
                           </button>
                         </div>
-                        <div>
-                          <input 
-                            type="text"
-                            placeholder="Descrizione evento (facoltativa)..."
-                            value={newEventDescriptions[student.id] || ""}
-                            onChange={(e) => setNewEventDescriptions({ ...newEventDescriptions, [student.id]: e.target.value })}
-                            className="w-full border rounded-2xl px-5 py-3 text-lg sm:text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
-                          />
-                        </div>
+                        <input 
+                          type="text"
+                          placeholder="Descrizione evento (facoltativa)..."
+                          value={newEventDescriptions[student.id] || ""}
+                          onChange={(e) => setNewEventDescriptions({ ...newEventDescriptions, [student.id]: e.target.value })}
+                          className="w-full border rounded-2xl px-4 py-2.5 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                        />
                       </div>
 
-                      <div className="space-y-8">
+                      <div className="space-y-6">
                         {student.events.map((event, eIdx) => (
-                          <div key={eIdx} className="border rounded-3xl p-6 sm:p-8 bg-black/30 border-white/15 backdrop-blur-sm">
-                            <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
-                              <h4 className="text-2xl sm:text-3xl font-normal font-playfair text-[#c9b074]">
+                          <div key={eIdx} className="border rounded-3xl p-4 sm:p-6 bg-black/30 border-white/15">
+                            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                              <h4 className="text-xl sm:text-2xl font-normal font-playfair text-[#c9b074]">
                                 {event.eventName}
                               </h4>
-
                               <button 
                                 onClick={() => handleDeleteEvent(student.id, eIdx)}
-                                className="flex items-center gap-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs sm:text-sm px-4 py-2 rounded-full transition-all transform active:scale-95 cursor-pointer font-medium"
+                                className="flex items-center gap-1.5 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs px-3 py-1.5 rounded-full transition-all active:scale-95 cursor-pointer"
                               >
-                                <Trash2 size={14} />
-                                <span>Elimina evento</span>
+                                <Trash2 size={13} />
+                                <span>Elimina</span>
                               </button>
                             </div>
 
-                            <div className="mb-6">
-                              <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-300">
-                                DESCRIZIONE EVENTO
-                              </label>
-                              <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <div className="mb-4">
+                              <div className="flex flex-col sm:flex-row items-center gap-2">
                                 <input 
                                   type="text"
-                                  placeholder="Aggiungi una descrizione per questo evento..."
+                                  placeholder="Descrizione..."
                                   defaultValue={event.description || ""}
                                   onChange={(e) => setEventDescInputs({ ...eventDescInputs, [`${student.id}-${eIdx}`]: e.target.value })}
-                                  className="w-full sm:flex-1 border rounded-2xl px-4.5 py-3 text-lg sm:text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                                  className="w-full sm:flex-1 border rounded-xl px-3.5 py-2 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                                 />
                                 <button 
                                   onClick={() => handleSaveEventDescription(student.id, eIdx)}
-                                  className="w-full sm:w-auto bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-sm px-5 py-3 rounded-2xl transition-all transform active:scale-95 cursor-pointer font-bold shadow-md"
+                                  className="w-full sm:w-auto bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs px-4 py-2 rounded-xl transition-all active:scale-95 cursor-pointer font-bold"
                                 >
-                                  Salva Descrizione
+                                  Salva
                                 </button>
                               </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                            <div className="flex flex-col sm:flex-row items-center gap-2 mb-4">
                               <input 
                                 type="text"
                                 placeholder="Nuovo corso..."
                                 value={newCourseNames[`${student.id}-${eIdx}`] || ""}
                                 onChange={(e) => setNewCourseNames({ ...newCourseNames, [`${student.id}-${eIdx}`]: e.target.value })}
-                                className="w-full sm:flex-1 border rounded-2xl px-4.5 py-3 text-lg sm:text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
+                                className="w-full sm:flex-1 border rounded-xl px-3.5 py-2 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
                               />
                               <button 
                                 onClick={() => handleAddCourseToEvent(student.id, eIdx)}
-                                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white text-sm font-semibold px-5 py-3 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer shadow-md"
+                                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                               >
-                                <Plus size={16} /> Aggiungi Corso
+                                <Plus size={14} /> Corso
                               </button>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                               {event.courses.map((course, cIdx) => (
-                                <div key={cIdx} className="border rounded-2xl p-6 bg-black/50 border-white/10">
-                                  <div className="flex justify-between items-center mb-4">
-                                    <span className="text-base sm:text-lg font-bold text-slate-100 font-playfair">
+                                <div key={cIdx} className="border rounded-2xl p-4 bg-black/50 border-white/10">
+                                  <div className="flex justify-between items-center mb-3">
+                                    <span className="text-sm sm:text-base font-bold text-slate-100 font-playfair">
                                       Corso di {course.name}
                                     </span>
-                                    <span className="text-sm font-medium text-slate-300">{course.photos.length} foto</span>
+                                    <span className="text-xs text-slate-300">{course.photos.length} foto</span>
                                   </div>
 
                                   {course.photos.length > 0 ? (
-                                    <div className="flex flex-wrap gap-4 mb-4">
+                                    <div className="flex flex-wrap gap-2.5 mb-3">
                                       {course.photos.map((photoUrl, pIdx) => (
-                                        <div key={pIdx} className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-white/15 group bg-black cursor-pointer shadow-lg">
+                                        <div key={pIdx} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-white/15 group bg-black cursor-pointer">
                                           <img 
                                             src={photoUrl} 
                                             alt={`Foto ${course.name}`} 
-                                            onClick={() => setZoomPhotoUrl(photoUrl)}
+                                            onClick={() => openZoomWithList(photoUrl, course.photos)}
                                             className="w-full h-full object-cover" 
                                           />
                                           <button 
                                             onClick={() => handleDeletePhoto(student.id, eIdx, cIdx, pIdx)}
-                                            className="absolute top-2 right-2 bg-black/80 text-red-400 hover:text-white p-1.5 rounded-full opacity-90 group-hover:opacity-100 transition-opacity z-10 cursor-pointer shadow"
+                                            className="absolute top-1 right-1 bg-black/80 text-red-400 p-1 rounded-full opacity-90 group-hover:opacity-100 shadow"
                                           >
-                                            <X size={14} />
+                                            <X size={12} />
                                           </button>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-sm italic mb-4 text-slate-400">Nessuna foto in questo corso.</p>
+                                    <p className="text-xs italic mb-3 text-slate-400">Nessuna foto.</p>
                                   )}
 
-                                  <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-300">
-                                      CARICA FOTO (WATERMARK AUTOMATICO)
-                                    </label>
-                                    <input 
-                                      type="file" 
-                                      multiple 
-                                      accept="image/*"
-                                      onChange={(e) => handleFileUpload(student.id, eIdx, cIdx, e.target.files)}
-                                      className="w-full text-sm cursor-pointer file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold text-slate-200 file:bg-white/10 file:text-white hover:file:bg-white/25 transition-all"
-                                    />
-                                  </div>
+                                  <input 
+                                    type="file" 
+                                    multiple 
+                                    accept="image/*"
+                                    onChange={(e) => handleFileUpload(student.id, eIdx, cIdx, e.target.files)}
+                                    className="w-full text-xs text-slate-200 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/25 cursor-pointer"
+                                  />
                                 </div>
                               ))}
                             </div>
@@ -1337,164 +1270,128 @@ export default function Page() {
                       </div>
                     </div>
                   )}
-
                 </div>
               );
             })}
           </div>
         </main>
       ) : authStep === 'change-password' && currentStudent ? (
-        <main className="relative z-10 max-w-lg mx-auto px-6 pt-20 pb-28 flex-1 w-full flex items-center justify-center">
-          <div className="border border-[#c9b074]/30 rounded-4xl p-8 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] text-white w-full">
-            <div className="text-center mb-8">
-              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#c9b074] block mb-2">
-                Primo Accesso
-              </span>
-              <h2 className="text-4xl font-normal font-playfair">
-                Benvenuto, {currentStudent.name}!
-              </h2>
-              <p className="text-sm mt-3 text-slate-300 leading-relaxed">
-                Imposta una password definitiva e registra la tua email personale.
-              </p>
+        <main className="relative z-10 max-w-lg mx-auto px-4 pt-16 pb-28 flex-1 w-full flex items-center justify-center">
+          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl text-white w-full">
+            <div className="text-center mb-6">
+              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#c9b074] block mb-2">Primo Accesso</span>
+              <h2 className="text-3xl font-normal font-playfair">Benvenuto, {currentStudent.name}!</h2>
+              <p className="text-xs sm:text-sm mt-2 text-slate-300">Configura password definitiva ed email.</p>
             </div>
 
-            <form onSubmit={handleUpdatePasswordSubmit} className="space-y-6">
+            <form onSubmit={handleUpdatePasswordSubmit} className="space-y-4">
               {passwordError && (
-                <div className="bg-red-500/20 border border-red-500 text-red-300 p-4 rounded-2xl text-sm font-medium">
+                <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-xl text-xs font-medium">
                   {passwordError}
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                  La tua Email Personale
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email Personale</label>
                 <div className="relative">
                   <input 
                     type="email" 
                     value={studentEmailInput} 
                     onChange={(e) => setStudentEmailInput(e.target.value)} 
                     required 
-                    placeholder="nome.cognome@email.com"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-4 pl-12 text-lg sm:text-sm text-white focus:outline-none focus:border-[#c9b074]" 
+                    placeholder="email@libero.it"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pl-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
                   />
-                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                  Nuova Password Definitiva
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Nuova Password</label>
                 <div className="relative">
                   <input 
                     type={showNewPassword ? "text" : "password"} 
                     value={newPasswordInput} 
                     onChange={(e) => setNewPasswordInput(e.target.value)} 
                     required 
-                    placeholder="Minimo 6 caratteri"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-4 pr-12 text-lg sm:text-sm text-white focus:outline-none focus:border-[#c9b074]" 
+                    placeholder="Min. 6 caratteri"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
                   />
-                  <button 
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
+                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                  Conferma Nuova Password
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Conferma Password</label>
                 <div className="relative">
                   <input 
                     type={showConfirmPassword ? "text" : "password"} 
                     value={confirmPasswordInput} 
                     onChange={(e) => setConfirmPasswordInput(e.target.value)} 
                     required 
-                    placeholder="Ripeti la password"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-4 pr-12 text-lg sm:text-sm text-white focus:outline-none focus:border-[#c9b074]" 
+                    placeholder="Ripeti password"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
                   />
-                  <button 
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
               <button 
                 type="submit" 
-                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm sm:text-base py-4 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg mt-4 flex items-center justify-center gap-2.5"
+                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg mt-2 flex items-center justify-center gap-2"
               >
-                <Check size={18} />
+                <Check size={16} />
                 <span>Salva e Accedi alla Galleria</span>
               </button>
             </form>
           </div>
         </main>
       ) : authStep === 'forgot-password' ? (
-        <main className="relative z-10 max-w-lg mx-auto px-6 pt-20 pb-28 flex-1 w-full flex items-center justify-center">
-          <div className="border border-[#c9b074]/30 rounded-4xl p-8 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] text-white w-full">
-            <button 
-              onClick={() => { setAuthStep('login'); setRecoveryEmail(""); }}
-              className="flex items-center gap-2 text-sm text-slate-300 hover:text-white mb-6 transition-colors cursor-pointer font-medium"
-            >
-              <ArrowLeft size={16} />
-              <span>Torna al login</span>
+        <main className="relative z-10 max-w-lg mx-auto px-4 pt-16 pb-28 flex-1 w-full flex items-center justify-center">
+          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl text-white w-full">
+            <button onClick={() => { setAuthStep('login'); setRecoveryEmail(""); }} className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white mb-4 cursor-pointer font-medium">
+              <ArrowLeft size={15} /> Torna al login
             </button>
-
-            <div className="text-center mb-8">
-              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#c9b074] block mb-2">
-                Supporto Account
-              </span>
-              <h2 className="text-4xl font-normal font-playfair">
-                Recupera Password
-              </h2>
+            <div className="text-center mb-6">
+              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#c9b074] block mb-1">Supporto</span>
+              <h2 className="text-3xl font-normal font-playfair">Recupera Password</h2>
             </div>
-
-            <form onSubmit={handlePasswordRecoverySubmit} className="space-y-6">
+            <form onSubmit={handlePasswordRecoverySubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                  Indirizzo Email
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email</label>
                 <div className="relative">
                   <input 
                     type="email" 
                     value={recoveryEmail} 
                     onChange={(e) => setRecoveryEmail(e.target.value)} 
                     required 
-                    placeholder="nome.cognome@email.com"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-4 pl-12 text-lg sm:text-sm text-white focus:outline-none focus:border-[#c9b074]" 
+                    placeholder="email@libero.it"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pl-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
                   />
-                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
-
               <button 
                 type="submit" 
                 disabled={isRecovering}
-                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm sm:text-base py-4 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg mt-4 flex items-center justify-center gap-2.5 disabled:opacity-50"
+                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg mt-2 flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Mail size={18} />
-                <span>{isRecovering ? "Invio in corso..." : "Invia email di recupero"}</span>
+                <Mail size={16} />
+                <span>{isRecovering ? "Invio..." : "Invia email di recupero"}</span>
               </button>
             </form>
           </div>
         </main>
       ) : authStep === 'dashboard' && currentStudent ? (
-        <main className="relative z-10 max-w-6xl mx-auto px-6 sm:px-8 pt-12 pb-28 flex-1 w-full">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8 border-b pb-8 border-white/10">
+        <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-32 flex-1 w-full">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-6 border-white/10">
             <div>
-              <p className="text-xs sm:text-sm font-semibold tracking-[0.25em] uppercase mb-2 text-slate-300">
-                Area Allievo
-              </p>
-              <h1 className="text-4xl sm:text-6xl font-normal font-playfair text-white">
+              <p className="text-xs font-semibold tracking-[0.25em] uppercase mb-1 text-slate-300">Area Allievo</p>
+              <h1 className="text-3xl sm:text-5xl font-normal font-playfair text-white">
                 Foto di <span className="italic text-[#c9b074]">{currentStudent.name} {currentStudent.surname}</span>
               </h1>
             </div>
@@ -1505,43 +1402,38 @@ export default function Page() {
                 downloadZip(allPhotos, `saggio-${currentStudent.surname}-${currentStudent.name}`);
               }}
               disabled={isZipping || getTotalPhotosCount(currentStudent) === 0}
-              className="flex items-center gap-2.5 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm sm:text-base px-6 py-3.5 rounded-full transition-all transform active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg"
+              className="hidden sm:flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm px-5 py-3 rounded-full transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg"
             >
-              <Archive size={18} />
+              <Archive size={16} />
               <span>{isZipping ? "Creazione ZIP..." : "Scarica TUTTO (.zip)"}</span>
             </button>
           </div>
 
           {selectedPhotos.length > 0 && (
-            <div className="sticky top-6 z-40 backdrop-blur-xl border rounded-3xl p-5 mb-10 flex justify-between items-center shadow-2xl bg-slate-900/90 border-[#c9b074]/40 text-white animate-fadeIn">
-              <div className="flex items-center gap-3 text-sm font-medium">
-                <span className="w-8 h-8 rounded-full bg-[#c9b074] text-black font-bold flex items-center justify-center text-xs">
+            <div className="sticky top-4 z-40 backdrop-blur-xl border rounded-2xl p-4 mb-8 flex justify-between items-center shadow-2xl bg-slate-900/90 border-[#c9b074]/40 text-white animate-fadeIn">
+              <div className="flex items-center gap-2.5 text-xs sm:text-sm font-medium">
+                <span className="w-7 h-7 rounded-full bg-[#c9b074] text-black font-bold flex items-center justify-center text-xs">
                   {selectedPhotos.length}
                 </span>
-                <span>foto selezionate</span>
+                <span>selezionate</span>
               </div>
-
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setSelectedPhotos([])}
-                  className="text-sm transition-colors cursor-pointer text-slate-300 hover:text-white font-medium"
-                >
+              <div className="flex items-center gap-3">
+                <button onClick={() => setSelectedPhotos([])} className="text-xs sm:text-sm text-slate-300 hover:text-white font-medium cursor-pointer">
                   Deseleziona
                 </button>
-
                 <button 
                   onClick={() => downloadZip(selectedPhotos, `foto-selezionate-${currentStudent.surname}`)}
                   disabled={isZipping}
-                  className="flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm px-5 py-2.5 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-md"
+                  className="flex items-center gap-1.5 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-4 py-2 rounded-full transition-all active:scale-95 cursor-pointer shadow"
                 >
-                  <Download size={16} />
-                  <span>Scarica Selezionate (.zip)</span>
+                  <Download size={14} />
+                  <span>Scarica ZIP</span>
                 </button>
               </div>
             </div>
           )}
 
-          <div className="space-y-12">
+          <div className="space-y-8">
             {currentStudent.events.map((event, eIdx) => {
               const filteredCourses = event.courses.filter(c => selectedCourseFilter === null || c.name === selectedCourseFilter);
               if (filteredCourses.length === 0) return null;
@@ -1551,105 +1443,90 @@ export default function Page() {
               const isMinimized = minimizedEvents[eIdx];
 
               return (
-                <div key={eIdx} className="border-2 border-[#c9b074]/30 rounded-4xl p-8 sm:p-12 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 pb-6 border-b border-white/15">
-                    <div className="flex items-center gap-4">
+                <div key={eIdx} className="border-2 border-[#c9b074]/30 rounded-4xl p-5 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl transition-all">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/15">
+                    <div className="flex items-center gap-3">
                       <button 
                         onClick={() => toggleMinimizeEvent(eIdx)}
-                        className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[#c9b074] transition-all transform active:scale-95 cursor-pointer shrink-0 shadow"
-                        title={isMinimized ? "Espandi evento" : "Minimizza evento"}
+                        className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[#c9b074] transition-all active:scale-95 cursor-pointer shrink-0"
                       >
-                        <ChevronDown size={22} className={`transition-transform duration-300 ${isMinimized ? "-rotate-90" : "rotate-0"}`} />
+                        <ChevronDown size={20} className={`transition-transform duration-300 ${isMinimized ? "-rotate-90" : "rotate-0"}`} />
                       </button>
-
                       <div>
-                        <span className="text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074] block mb-1.5">
-                          Evento / Spettacolo
-                        </span>
-                        <h2 className="text-3xl sm:text-5xl font-normal font-playfair text-white">
-                          {event.eventName}
-                        </h2>
-                        {event.description && (
-                          <p className="text-sm sm:text-base text-slate-200 mt-3 font-light leading-relaxed">
-                            {event.description}
-                          </p>
-                        )}
+                        <span className="text-[10px] sm:text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074] block mb-1">Evento</span>
+                        <h2 className="text-2xl sm:text-4xl font-normal font-playfair text-white">{event.eventName}</h2>
+                        {event.description && <p className="text-xs sm:text-sm text-slate-200 mt-1 font-light">{event.description}</p>}
                       </div>
                     </div>
 
                     {allEventPhotos.length > 0 && !isMinimized && (
                       <button 
                         onClick={() => toggleSelectAllPhotos(allEventPhotos)}
-                        className="flex items-center gap-2 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-md"
+                        className="flex items-center gap-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-full transition-all active:scale-95 cursor-pointer shadow"
                       >
-                        {isAllEventSelected ? <CheckSquare size={18} className="text-[#c9b074]" /> : <Square size={18} />}
-                        <span>{isAllEventSelected ? "Deseleziona intero evento" : "Seleziona tutto l'evento"}</span>
+                        {isAllEventSelected ? <CheckSquare size={16} className="text-[#c9b074]" /> : <Square size={16} />}
+                        <span>{isAllEventSelected ? "Deseleziona tutto" : "Seleziona tutto"}</span>
                       </button>
                     )}
                   </div>
 
                   {!isMinimized && (
-                    <div className="space-y-10">
+                    <div className="space-y-6">
                       {filteredCourses.map((course, cIdx) => {
                         const isAllCourseSelected = course.photos.length > 0 && course.photos.every((p) => selectedPhotos.includes(p));
 
                         return (
-                          <div key={cIdx} className="border border-[#c9b074]/20 rounded-3xl p-6 sm:p-8 bg-black/40 backdrop-blur-sm">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
-                              <h3 className="text-2xl sm:text-3xl font-normal font-playfair flex items-center gap-3.5 text-white">
-                                <span className="w-3 h-3 rounded-full bg-[#c9b074]"></span>
+                          <div key={cIdx} className="border border-[#c9b074]/20 rounded-3xl p-4 sm:p-6 bg-black/40">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10">
+                              <h3 className="text-xl sm:text-2xl font-normal font-playfair flex items-center gap-2.5 text-white">
+                                <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074]"></span>
                                 Corso di {course.name}
                               </h3>
-
                               {course.photos.length > 0 && (
                                 <button 
                                   onClick={() => toggleSelectAllPhotos(course.photos)}
-                                  className="flex items-center gap-2 text-sm text-slate-200 hover:text-white transition-colors cursor-pointer font-medium"
+                                  className="flex items-center gap-1.5 text-xs text-slate-200 hover:text-white cursor-pointer font-medium"
                                 >
-                                  {isAllCourseSelected ? <CheckSquare size={18} className="text-[#c9b074]" /> : <Square size={18} />}
+                                  {isAllCourseSelected ? <CheckSquare size={16} className="text-[#c9b074]" /> : <Square size={16} />}
                                   <span>{isAllCourseSelected ? "Deseleziona corso" : "Seleziona corso"}</span>
                                 </button>
                               )}
                             </div>
 
                             {course.photos.length > 0 ? (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                                 {course.photos.map((photoUrl, pIdx) => {
                                   const isSelected = selectedPhotos.includes(photoUrl);
-
                                   return (
                                     <div 
                                       key={pIdx} 
-                                      className={`relative group rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 aspect-square bg-black shadow-lg ${
-                                        isSelected 
-                                          ? "border-[#c9b074] ring-4 ring-[#c9b074]/50 scale-[1.02]" 
-                                          : "border-white/15 hover:border-white/40 hover:scale-[1.01]"
+                                      className={`relative group rounded-2xl overflow-hidden border cursor-pointer transition-all aspect-square bg-black shadow-lg ${
+                                        isSelected ? "border-[#c9b074] ring-2 ring-[#c9b074]/60 scale-[1.01]" : "border-white/15"
                                       }`}
                                     >
                                       <img 
                                         src={photoUrl} 
                                         alt={`Foto ${course.name}`} 
-                                        onClick={() => setZoomPhotoUrl(photoUrl)}
-                                        className={`w-full h-full object-cover transition-transform duration-300 ${isSelected ? "scale-105 opacity-90" : "group-hover:scale-105"}`} 
+                                        onClick={() => openZoomWithList(photoUrl, course.photos)}
+                                        className="w-full h-full object-cover" 
                                       />
-
                                       <div 
-                                        onClick={() => setZoomPhotoUrl(photoUrl)}
-                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none"
+                                        onClick={() => openZoomWithList(photoUrl, course.photos)}
+                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center sm:flex pointer-events-none"
                                       >
-                                        <span className="bg-black/75 text-white text-sm px-4 py-2 rounded-full flex items-center gap-2 border border-white/20 shadow-xl font-medium">
-                                          <ZoomIn size={16} className="text-[#c9b074]" /> Ingrandisci
+                                        <span className="hidden sm:inline-block bg-black/75 text-white text-xs px-3 py-1.5 rounded-full border border-white/20 shadow">
+                                          <ZoomIn size={14} className="inline mr-1 text-[#c9b074]" /> Ingrandisci
                                         </span>
                                       </div>
 
                                       <div 
                                         onClick={(e) => { e.stopPropagation(); togglePhotoSelection(photoUrl); }}
-                                        className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10"
+                                        className="absolute top-2.5 left-2.5 z-10"
                                       >
-                                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all ${
-                                          isSelected ? "bg-[#c9b074] text-black shadow-md scale-110" : "bg-black/60 border border-white/40 text-transparent hover:border-white"
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                                          isSelected ? "bg-[#c9b074] text-black shadow scale-110" : "bg-black/60 border border-white/40 text-transparent"
                                         }`}>
-                                          <Check size={16} className="stroke-[3]" />
+                                          <Check size={14} className="stroke-[3]" />
                                         </div>
                                       </div>
 
@@ -1657,21 +1534,18 @@ export default function Page() {
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleDownloadSinglePhoto(
-                                            photoUrl, 
-                                            `foto-${currentStudent.name}-${event.eventName}-${course.name}-${pIdx + 1}.jpg`
-                                          );
+                                          handleDownloadSinglePhoto(photoUrl, `foto-${currentStudent.name}-${event.eventName}-${course.name}-${pIdx + 1}.jpg`);
                                         }}
-                                        className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-black/70 hover:bg-[#c9b074] hover:text-black text-white p-2.5 rounded-full transition-colors shadow-xl z-20 cursor-pointer"
+                                        className="absolute top-2.5 right-2.5 bg-black/70 text-white p-2 rounded-full shadow z-20 cursor-pointer"
                                       >
-                                        <Download size={15} />
+                                        <Download size={13} />
                                       </button>
                                     </div>
                                   );
                                 })}
                               </div>
                             ) : (
-                              <p className="text-base italic text-slate-400">Nessuna foto disponibile per questo corso.</p>
+                              <p className="text-sm italic text-slate-400">Nessuna foto disponibile per questo corso.</p>
                             )}
                           </div>
                         );
@@ -1682,216 +1556,120 @@ export default function Page() {
               );
             })}
           </div>
+
+          <div className="fixed bottom-6 right-6 z-40 sm:hidden flex items-center gap-2">
+            {selectedPhotos.length > 0 ? (
+              <button
+                onClick={() => downloadZip(selectedPhotos, `foto-selezionate-${currentStudent.surname}`)}
+                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 active:scale-95 transition-transform"
+              >
+                <Download size={18} />
+                <span className="text-xs">Scarica ({selectedPhotos.length})</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  const allPhotos = currentStudent.events.flatMap((ev) => ev.courses.flatMap((c) => c.photos));
+                  downloadZip(allPhotos, `saggio-${currentStudent.surname}-${currentStudent.name}`);
+                }}
+                disabled={isZipping || getTotalPhotosCount(currentStudent) === 0}
+                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+              >
+                <Archive size={18} />
+                <span className="text-xs">{isZipping ? "ZIP..." : "Scarica Tutto"}</span>
+              </button>
+            )}
+          </div>
         </main>
       ) : (
-        <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 py-11 sm:py-5 flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-20">
-          
-          <div className="w-full lg:w-7/12 flex flex-col items-center lg:items-start text-center lg:text-left space-y-8">
-            <span className="text-xs sm:text-sm font-semibold tracking-[0.4em] uppercase text-[#c9b074]">
-              NUOVA ACCADEMIA TOSCANINI
-            </span>
-            <h1 className="text-6xl sm:text-6xl lg:text-8xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
+        <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-10 lg:px-12 py-8 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20">
+          <div className="w-full lg:w-7/12 flex flex-col items-center lg:items-start text-center lg:text-left space-y-6">
+            <span className="text-xs font-semibold tracking-[0.4em] uppercase text-[#c9b074]">NUOVA ACCADEMIA TOSCANINI</span>
+            <h1 className="text-4xl sm:text-6xl lg:text-8xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <br />
-              <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-300 bg-clip-text text-transparent drop-shadow-sm">Galleria Privata</span>
+              <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-300 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
-            <p className="text-lg sm:text-0xl max-w-2xl font-normal leading-relaxed text-slate-200">
+            <p className="text-sm sm:text-lg max-w-2xl font-normal leading-relaxed text-slate-200">
               Inserisci le credenziali ufficiali fornite dalla segreteria dell'accademia per esplorare, selezionare e scaricare i tuoi ricordi in alta definizione.
             </p>
           </div>
 
           <div className="w-full lg:w-5/12 max-w-md">
-            <div className="border border-[#c9b074]/30 rounded-4xl p-8 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/75 to-slate-950/95 shadow-[0_16px_48px_rgba(0,0,0,0.6)] relative overflow-hidden">
-              
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-[#c9b074]/70 to-transparent"></div>
-
-              <form onSubmit={handleStudentLoginSubmit} className="space-y-6">
+            <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/75 to-slate-950/95 shadow-2xl relative overflow-hidden">
+              <form onSubmit={handleStudentLoginSubmit} className="space-y-4 sm:space-y-6">
                 {loginError && (
-                  <div className="bg-red-500/20 border border-red-500 text-red-300 p-4 rounded-2xl text-sm font-medium">
+                  <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-2xl text-xs font-medium">
                     {loginError}
                   </div>
                 )}
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    Nome
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Nome</label>
                   <input 
                     type="text" 
                     value={loginName} 
                     onChange={(e) => setLoginName(e.target.value)} 
                     required 
-                    placeholder="es. Mario"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3 text-lg sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
+                    placeholder="Mario"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    Cognome
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Cognome</label>
                   <input 
                     type="text" 
                     value={loginSurname} 
                     onChange={(e) => setLoginSurname(e.target.value)} 
                     required 
-                    placeholder="es. Rossi"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3 text-lg sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
+                    placeholder="Rossi"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                    Password
-                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Password</label>
                   <div className="relative">
                     <input 
                       type={showLoginPassword ? "text" : "password"} 
                       value={loginPassword} 
                       onChange={(e) => setLoginPassword(e.target.value)} 
                       required 
-                      placeholder="••••••••••••••••••••••••"
-                      className="w-full bg-black/50 border border-white/15 rounded-2xl p-4 pr-12 text-lg sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
+                      placeholder="••••••••••••"
+                      className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
                     />
-                    <button 
-                      type="button"
-                      onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                    >
-                      {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    <button type="button" onClick={() => setShowLoginPassword(!showLoginPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
+                      {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
-
-                <div className="pt-2">
-                  <button 
-                    type="submit" 
-                    disabled={loginLoading}
-                    className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm sm:text-base py-4 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loginLoading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        <span>Accesso in corso...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Unlock size={16} />
-                        <span>Accedi alla galleria</span>
-                      </>
-                    )}
+                <button 
+                  type="submit" 
+                  disabled={loginLoading}
+                  className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-4 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loginLoading ? <Loader2 size={18} className="animate-spin" /> : <Unlock size={16} />}
+                  <span>{loginLoading ? "Accesso..." : "Accedi alla galleria"}</span>
+                </button>
+                <div className="pt-4 border-t border-white/10 flex flex-col items-center gap-2 text-center">
+                  <button type="button" onClick={() => setAuthStep('forgot-password')} className="text-xs sm:text-sm text-[#c9b074] hover:underline cursor-pointer font-semibold">
+                    Hai dimenticato la password?
                   </button>
+                  <p className="text-[11px] text-slate-300">Rivolgiti in segreteria per il reset.</p>
                 </div>
-
-                <div className="pt-6 border-t border-white/10 flex flex-col items-center gap-3 text-center">
-                  <button 
-                    type="button"
-                    onClick={() => setAuthStep('forgot-password')}
-                    className="text-sm text-[#c9b074] hover:underline cursor-pointer font-semibold"
-                  >
-                    Hai dimenticato la password? Recuperala qui
-                  </button>
-                  <p className="text-xs text-slate-300 font-light leading-relaxed">
-                    Se non è ancora avvenuto il cambio password andare in segreteria per prendersi la password.
-                  </p>
-                </div>
-
               </form>
             </div>
           </div>
-
         </main>
-      )}
-
-      {isFaqModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="border border-[#c9b074]/30 rounded-4xl p-8 sm:p-10 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative shadow-2xl transition-colors backdrop-blur-2xl bg-slate-950/90 text-white">
-            <button 
-              onClick={() => setIsFaqModalOpen(false)}
-              className="absolute top-6 right-6 p-2 rounded-full transition-colors cursor-pointer text-slate-300 hover:text-white bg-white/5 hover:bg-white/10"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="text-center mb-8">
-              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-2 text-[#c9b074]">
-                Guida e Assistenza
-              </p>
-              <h2 className="text-4xl font-normal font-playfair text-white">
-                FAQ - <span className="italic text-[#c9b074]">Hai bisogno di aiuto?</span>
-              </h2>
-              <p className="text-sm text-slate-300 mt-2">
-                Tutte le risposte e le istruzioni per accedere e utilizzare la galleria fotografica.
-              </p>
-            </div>
-
-            <div className="space-y-5 text-sm text-slate-200 leading-relaxed">
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                <h3 className="text-base font-bold text-white mb-2 font-playfair flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074]"></span>
-                  1. Come entrare (Primo Accesso)
-                </h3>
-                <p>
-                  Per effettuare il primo accesso, inserisci nella schermata principale il <strong>Nome</strong> e il <strong>Cognome</strong> dell'allievo insieme alla <strong>password provvisoria</strong> fornita dalla segreteria dell'accademia.
-                </p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                <h3 className="text-base font-bold text-white mb-2 font-playfair flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074]"></span>
-                  2. Registrazione e configurazione account
-                </h3>
-                <p>
-                  Al primo login il sistema richiederà di completare la configurazione inserendo un <strong>indirizzo email personale</strong> e impostando una <strong>nuova password definitiva</strong> (di almeno 6 caratteri). Questo metterà in sicurezza il profilo per gli accessi futuri.
-                </p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                <h3 className="text-base font-bold text-white mb-2 font-playfair flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074]"></span>
-                  3. Cosa fare se si perde la password
-                </h3>
-                <p>
-                  Nella schermata di accesso, clicca sul link <strong>"Hai dimenticato la password? Recuperala qui"</strong>, inserisci la tua email registrata per ricevere le istruzioni di recupero, oppure contatta direttamente la segreteria dell'accademia per un reset rapido.
-                </p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                <h3 className="text-base font-bold text-white mb-2 font-playfair flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074]"></span>
-                  4. Come accedere alla galleria e scaricare le foto
-                </h3>
-                <p>
-                  Una volta dentro la dashboard, potrai visualizzare tutti gli spettacoli e i corsi dell'allievo. Clicca su qualsiasi foto per ingrandirla, oppure seleziona le foto desiderate (o l'intero evento) per scaricarle rapidamente in formato <strong>ZIP</strong> con un unico click.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-white/10 text-center">
-              <button 
-                onClick={() => setIsFaqModalOpen(false)}
-                className="bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm sm:text-base py-3 px-8 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg"
-              >
-                Ho capito, chiudi
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {zoomPhotoUrl && (
         <div 
-          className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-between p-6 sm:p-10 animate-fadeIn"
+          className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-between p-4 sm:p-8 animate-fadeIn"
           onClick={() => setZoomPhotoUrl(null)}
         >
-          <div 
-            className="w-full max-w-6xl flex justify-between items-center z-10 pt-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-sm text-slate-300 font-mono tracking-wider">
-              ANTEPRIMA IMMAGINE
+          <div className="w-full max-w-6xl flex justify-between items-center z-10" onClick={(e) => e.stopPropagation()}>
+            <div className="text-xs sm:text-sm text-slate-300 font-mono">
+              {zoomCurrentIndex + 1} / {activePhotosList.length}
             </div>
-
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => {
                   const shareText = "Guarda questa foto del mio saggio all'Accademia Toscanini!";
@@ -1901,70 +1679,98 @@ export default function Page() {
                     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + " " + zoomPhotoUrl)}`, '_blank');
                   }
                 }}
-                className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm px-5 py-2.5 rounded-full transition-all cursor-pointer"
+                className="flex items-center gap-1.5 bg-emerald-600/20 text-emerald-300 font-bold text-xs px-3.5 py-2 rounded-full cursor-pointer"
               >
-                <Share2 size={16} />
-                <span>Condividi</span>
+                <Share2 size={14} />
+                <span className="hidden sm:inline">Condividi</span>
               </button>
-
               <button 
                 onClick={() => handleDownloadSinglePhoto(zoomPhotoUrl, "foto-saggio-nat.jpg")}
-                className="flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm px-5 py-2.5 rounded-full transition-all transform active:scale-95 cursor-pointer shadow-lg"
+                className="flex items-center gap-1.5 bg-[#c9b074] text-black font-bold text-xs px-4 py-2 rounded-full shadow cursor-pointer"
               >
-                <Download size={16} />
+                <Download size={14} />
                 <span>Scarica</span>
               </button>
-
-              <button 
-                onClick={() => setZoomPhotoUrl(null)}
-                className="bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-full transition-colors cursor-pointer"
-              >
-                <X size={20} />
+              <button onClick={() => setZoomPhotoUrl(null)} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full cursor-pointer">
+                <X size={18} />
               </button>
             </div>
           </div>
 
-          <div 
-            className="relative max-w-6xl max-h-[80vh] my-auto flex items-center justify-center overflow-hidden rounded-3xl border border-white/10 shadow-2xl bg-slate-900/50 backdrop-blur-md"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative w-full max-w-5xl h-[70vh] my-auto flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {activePhotosList.length > 1 && (
+              <>
+                <button 
+                  onClick={handlePrevPhoto} 
+                  className="absolute left-2 sm:-left-4 z-20 bg-black/70 hover:bg-black text-white p-3 rounded-full border border-white/20 shadow-xl cursor-pointer active:scale-95"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+                <button 
+                  onClick={handleNextPhoto} 
+                  className="absolute right-2 sm:-right-4 z-20 bg-black/70 hover:bg-black text-white p-3 rounded-full border border-white/20 shadow-xl cursor-pointer active:scale-95"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              </>
+            )}
             <img 
               src={zoomPhotoUrl} 
-              alt="Anteprima foto ingrandita" 
-              className="max-w-full max-h-[80vh] object-contain select-none"
+              alt="Anteprima foto" 
+              className="max-w-full max-h-[70vh] object-contain rounded-2xl select-none shadow-2xl"
             />
           </div>
 
-          <p className="text-slate-400 text-sm italic z-10 pb-2">
-            Clicca in un punto qualsiasi fuori dalla foto per chiudere
-          </p>
+          <p className="text-slate-400 text-xs italic z-10">Tocca fuori o chiudi per tornare alla galleria</p>
+        </div>
+      )}
+
+      {isFaqModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 max-w-xl w-full max-h-[90vh] overflow-y-auto relative backdrop-blur-2xl bg-slate-950/90 text-white shadow-2xl">
+            <button onClick={() => setIsFaqModalOpen(false)} className="absolute top-5 right-5 p-2 rounded-full text-slate-300 hover:text-white bg-white/5 cursor-pointer">
+              <X size={18} />
+            </button>
+            <div className="text-center mb-6">
+              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-1 text-[#c9b074]">Assistenza</p>
+              <h2 className="text-3xl font-normal font-playfair text-white">FAQ</h2>
+            </div>
+            <div className="space-y-4 text-xs sm:text-sm text-slate-200">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h3 className="font-bold text-white mb-1 font-playfair">1. Primo Accesso</h3>
+                <p>Inserisci Nome, Cognome e password provvisoria fornita dalla segreteria.</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h3 className="font-bold text-white mb-1 font-playfair">2. Configurazione Account</h3>
+                <p>Ti verrà chiesto di inserire una tua email e scegliere una password definitiva.</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h3 className="font-bold text-white mb-1 font-playfair">3. Recupero Password</h3>
+                <p>Usa il link di recupero nella schermata di login oppure contatta la segreteria.</p>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-white/10 text-center">
+              <button onClick={() => setIsFaqModalOpen(false)} className="bg-[#c9b074] text-black font-bold text-xs sm:text-sm py-3 px-6 rounded-full cursor-pointer shadow">
+                Chiudi
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="border border-[#c9b074]/30 rounded-4xl p-8 sm:p-10 max-w-md w-full relative shadow-2xl transition-colors backdrop-blur-2xl bg-slate-950/90 text-white">
-            <button 
-              onClick={() => { setIsModalOpen(false); setAdminPasswordError(false); setShowAdminPassword(false); setAdminPasswordInput(""); }}
-              className="absolute top-6 right-6 p-2 rounded-full transition-colors cursor-pointer text-slate-300 hover:text-white bg-white/5 hover:bg-white/10"
-            >
-              <X size={20} />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 max-w-md w-full relative backdrop-blur-2xl bg-slate-950/90 text-white shadow-2xl">
+            <button onClick={() => { setIsModalOpen(false); setAdminPasswordError(false); setAdminPasswordInput(""); }} className="absolute top-5 right-5 p-2 rounded-full text-slate-300 hover:text-white bg-white/5 cursor-pointer">
+              <X size={18} />
             </button>
-
-            <div className="text-center mb-8">
-              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-2 text-slate-300">
-                RISERVATO ALLO STAFF
-              </p>
-              <h2 className="text-4xl sm:text-5xl font-normal font-playfair text-white">
-                Area <span className="italic text-[#c9b074]">Riservata</span>
-              </h2>
+            <div className="text-center mb-6">
+              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-1 text-slate-300">RISERVATO ALLO STAFF</p>
+              <h2 className="text-3xl font-normal font-playfair text-white">Area Riservata</h2>
             </div>
-
-            <form onSubmit={handleAdminLogin} className="space-y-6">
+            <form onSubmit={handleAdminLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2.5 text-slate-200">
-                  PASSWORD AMMINISTRATORE
-                </label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">PASSWORD</label>
                 <div className="relative">
                   <input 
                     type={showAdminPassword ? "text" : "password"}
@@ -1972,33 +1778,16 @@ export default function Page() {
                     onChange={(e) => setAdminPasswordInput(e.target.value)}
                     placeholder="••••••••"
                     autoFocus
-                    className={`w-full border rounded-2xl px-5 py-4 pr-12 text-lg sm:text-base focus:outline-none transition-colors ${
-                      adminPasswordError 
-                        ? "border-red-500 bg-black/50 text-white" 
-                        : "bg-black/50 border-white/15 text-white placeholder-slate-500 focus:border-[#c9b074]"
-                    }`}
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]"
                   />
-                  <button 
-                    type="button"
-                    onClick={() => setShowAdminPassword(!showAdminPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    {showAdminPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
+                    {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                {adminPasswordError && (
-                  <p className="text-red-400 text-sm mt-2 font-medium">
-                    Password errata. Riprova.
-                  </p>
-                )}
+                {adminPasswordError && <p className="text-red-400 text-xs mt-2 font-medium">Password errata.</p>}
               </div>
-
-              <button 
-                type="submit"
-                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-base py-4 px-6 rounded-full flex items-center justify-center gap-2.5 transition-all transform active:scale-95 duration-200 cursor-pointer shadow-lg mt-2"
-              >
-                <Lock size={18} />
-                <span>Entra</span>
+              <button type="submit" className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2">
+                <Lock size={16} /> Entra
               </button>
             </form>
           </div>
