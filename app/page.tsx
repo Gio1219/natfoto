@@ -1414,21 +1414,6 @@ export default function Page() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email Personale</label>
-                <div className="relative">
-                  <input 
-                    type="email" 
-                    value={studentEmailInput} 
-                    onChange={(e) => setStudentEmailInput(e.target.value)} 
-                    required 
-                    placeholder="email@libero.it"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pl-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
-                  />
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                </div>
-              </div>
-
-              <div>
                 <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Nuova Password</label>
                 <div className="relative">
                   <input 
