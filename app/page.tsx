@@ -29,12 +29,12 @@ interface Student {
   name: string;
   surname: string;
   number: string;
-  email?: string;
+  email?: string | null;
   password: string;
   has_changed_password?: boolean;
   is_minor?: boolean;
-  parent_name?: string;
-  parent_email?: string;
+  parent_name?: string | null;
+  parent_email?: string | null;
   events: EventSection[];
 }
 
@@ -310,7 +310,7 @@ export default function Page() {
       setCurrentStudent(formattedStudent as Student);
       setSelectedCourseFilter(null);
       
-      if (formattedStudent.email) {
+      if (!formattedStudent.is_minor && formattedStudent.email) {
         setStudentEmailInput(formattedStudent.email);
       }
 
@@ -350,7 +350,7 @@ export default function Page() {
       const { data, error } = await supabase
         .from("students")
         .select("*")
-        .ilike("email", email)
+        .or(`email.ilike.${email},parent_email.ilike.${email}`)
         .single();
 
       if (error || !data) {
@@ -359,6 +359,14 @@ export default function Page() {
       }
 
       const student = data as Student;
+      // Il minorenne deve ricevere il codice ESCLUSIVAMENTE all'email del genitore.
+      const targetEmail = student.is_minor ? student.parent_email : student.email;
+
+      if (!targetEmail) {
+        toast.error("Non è configurata un'email valida per questo account.");
+        return;
+      }
+
       const randomNums = Math.floor(Math.random() * 900 + 100);
       const letters = "abcdefghjkmnpqrstuvwxyz"; 
       const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
@@ -379,7 +387,7 @@ export default function Page() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: student.email?.trim() || email,
+            email: targetEmail.trim(),
             name: student.name,
             surname: student.surname,
             password: newTempPassword,
@@ -413,40 +421,71 @@ export default function Page() {
       toast.error("Password troppo corta");
       return;
     }
-    if (!studentEmailInput.trim()) {
-      setPasswordError("Inserisci un indirizzo email valido.");
-      toast.error("Inserisci un'email valida");
-      return;
-    }
-    if (currentStudent?.is_minor && (!parentNameInput.trim() || !parentEmailInput.trim())) {
-      setPasswordError("Trattandosi di un allievo minorenne, è obbligatorio inserire i dati del genitore o tutore legale.");
-      toast.error("Dati genitore obbligatori");
-      return;
-    }
+
     if (!currentStudent) return;
+
+    if (currentStudent.is_minor) {
+      if (!parentNameInput.trim() || !parentEmailInput.trim()) {
+        setPasswordError("Trattandosi di un allievo minorenne, è obbligatorio inserire i dati del genitore o tutore legale.");
+        toast.error("Dati genitore obbligatori");
+        return;
+      }
+    } else {
+      if (!studentEmailInput.trim()) {
+        setPasswordError("Inserisci un indirizzo email valido.");
+        toast.error("Inserisci un'email valida");
+        return;
+      }
+    }
+
+    // Logica differenziata per Payload Database 
+    const updatePayload = currentStudent.is_minor ? {
+      password: newPasswordInput,
+      email: null, // Non salviamo né richiediamo email personale per i minorenni
+      parent_name: parentNameInput.trim(),
+      parent_email: parentEmailInput.trim(),
+      has_changed_password: true
+    } : {
+      password: newPasswordInput,
+      email: studentEmailInput.trim(),
+      parent_name: null,
+      parent_email: null,
+      has_changed_password: true
+    };
+
+    const targetEmail = currentStudent.is_minor ? parentEmailInput.trim() : studentEmailInput.trim();
 
     try {
       const { error } = await supabase
         .from("students")
-        .update({ 
-          password: newPasswordInput, 
-          email: studentEmailInput.trim(),
-          parent_name: currentStudent.is_minor ? parentNameInput.trim() : null,
-          parent_email: currentStudent.is_minor ? parentEmailInput.trim() : null,
-          has_changed_password: true 
-        })
+        .update(updatePayload)
         .eq("id", currentStudent.id);
 
       if (error) throw error;
 
       try {
+        // Email di conferma all'utente o genitore
         await fetch("/api/send-confirmation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: studentEmailInput.trim(),
+            email: targetEmail,
             name: currentStudent.name,
             surname: currentStudent.surname,
+          }),
+        });
+
+        // Email di notifica primo accesso all'Accademia
+        const emailAccademia = "latuaemail@example.com"; // <-- INSERISCI QUI LA TUA EMAIL O QUELLA DELL'ACCADEMIA
+        await fetch("/api/send-academy-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: emailAccademia,
+            name: currentStudent.name,
+            surname: currentStudent.surname,
+            isMinor: currentStudent.is_minor,
+            parentName: parentNameInput.trim()
           }),
         });
       } catch (mailErr) {
@@ -455,12 +494,13 @@ export default function Page() {
 
       setCurrentStudent({ 
         ...currentStudent, 
-        password: newPasswordInput,
-        email: studentEmailInput.trim(),
-        parent_name: currentStudent.is_minor ? parentNameInput.trim() : undefined,
-        parent_email: currentStudent.is_minor ? parentEmailInput.trim() : undefined,
+        password: updatePayload.password,
+        email: updatePayload.email,
+        parent_name: updatePayload.parent_name || undefined,
+        parent_email: updatePayload.parent_email || undefined,
         has_changed_password: true 
       });
+      
       setAuthStep('dashboard');
       setSelectedPhotos([]);
       setNewPasswordInput("");
@@ -470,61 +510,64 @@ export default function Page() {
       setParentEmailInput("");
       setShowNewPassword(false);
       setShowConfirmPassword(false);
-      toast.success("Password aggiornata e email di conferma inviata!");
+      toast.success("Password aggiornata e email di conferma inviate!");
     } catch {
       setPasswordError("Errore durante il salvataggio dei dati.");
       toast.error("Errore durante il salvataggio");
     }
   };
 
-  const handleResetStudentPassword = async (studentId: string, studentName: string, studentSurname: string, studentEmail?: string) => {
+  const handleResetStudentPassword = async (student: Student) => {
     const randomNums = Math.floor(Math.random() * 900 + 100);
     const letters = "abcdefghjkmnpqrstuvwxyz"; 
     const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
-    const newTempPassword = `${studentName.toLowerCase().trim()}.${studentSurname.toLowerCase().trim()}.${randomNums}${randomLets}`;
+    const newTempPassword = `${student.name.toLowerCase().trim()}.${student.surname.toLowerCase().trim()}.${randomNums}${randomLets}`;
 
     const { error } = await supabase
       .from("students")
       .update({ password: newTempPassword, has_changed_password: false })
-      .eq("id", studentId);
+      .eq("id", student.id);
 
     if (error) {
       toast.error(`Errore: ${error.message}`);
       return;
     }
 
-    if (studentEmail && studentEmail.trim() !== "") {
+    const targetEmail = student.is_minor ? student.parent_email : student.email;
+
+    if (targetEmail && targetEmail.trim() !== "") {
       try {
         await fetch("/api/send-credentials", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: studentEmail.trim(),
-            name: studentName,
-            surname: studentSurname,
+            email: targetEmail.trim(),
+            name: student.name,
+            surname: student.surname,
             password: newTempPassword,
           }),
         });
-        toast.success(`Password rigenerata e inviata a ${studentEmail}`);
+        toast.success(`Password rigenerata e inviata a ${targetEmail}`);
       } catch (mailErr) {
         console.error("Errore invio email:", mailErr);
         toast.warning("Password rigenerata, ma c'è stato un problema nell'invio dell'email.");
       }
     } else {
-      toast.warning("Password rigenerata, ma l'allievo non ha un'email configurata.");
+      toast.warning("Password rigenerata, ma non è associata nessuna email valida per questo utente.");
     }
     
     fetchStudents();
   };
 
   const exportStudentsCSV = () => {
-    const headers = ["Nome", "Cognome", "Minorenne", "Genitore", "Email Genitore", "Password"];
+    const headers = ["Nome", "Cognome", "Minorenne", "Genitore", "Email Genitore", "Email Personale", "Password"];
     const rows = students.map(s => [
       s.name, 
       s.surname, 
       s.is_minor ? "Sì" : "No", 
       s.parent_name || "", 
       s.parent_email || "", 
+      s.email || "", 
       s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
@@ -539,7 +582,7 @@ export default function Page() {
   };
 
   const exportStudentsTXT = () => {
-    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Minorenne: ${s.is_minor ? 'Sì (Genitore: ' + (s.parent_name || 'N/D') + ')' : 'No'} | Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
+    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Minorenne: ${s.is_minor ? 'Sì (Genitore: ' + (s.parent_name || 'N/D') + ' - ' + (s.parent_email || 'N/D') + ')' : 'No (Email: ' + (s.email || 'N/D') + ')'} | Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
     const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -553,7 +596,7 @@ export default function Page() {
   };
 
   const copyStudentsToClipboard = () => {
-    const textContent = students.map(s => `${s.name} ${s.surname} ${s.is_minor ? '(Minorenne - Genitore: ' + (s.parent_name || 'N/D') + ')' : ''} - Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
+    const textContent = students.map(s => `${s.name} ${s.surname} ${s.is_minor ? '(Minorenne - Genitore: ' + (s.parent_name || 'N/D') + ')' : '(Maggiorenne)'} - Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
     navigator.clipboard.writeText(textContent);
     toast.success("Elenco copiato negli appunti!");
   };
@@ -661,7 +704,7 @@ export default function Page() {
       name: newNome.trim(),
       surname: newCognome.trim(),
       number: newNumber.trim() || "N/D",
-      email: newEmail.trim() ? newEmail.trim() : null,
+      email: newIsMinor ? null : (newEmail.trim() ? newEmail.trim() : null),
       password: generatedPassword,
       has_changed_password: false,
       is_minor: newIsMinor,
@@ -906,7 +949,7 @@ export default function Page() {
   const filteredStaffStudents = students.filter(st => {
     const fullName = `${st.name} ${st.surname}`.toLowerCase();
     const query = staffSearchQuery.toLowerCase();
-    const emailMatch = st.email?.toLowerCase().includes(query) || false;
+    const emailMatch = st.email?.toLowerCase().includes(query) || st.parent_email?.toLowerCase().includes(query) || false;
     return fullName.includes(query) || emailMatch;
   });
 
@@ -1085,16 +1128,18 @@ export default function Page() {
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EMAIL (FACOLTATIVA)</label>
-                  <input 
-                    type="email" 
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="email@libero.it"
-                    className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
-                  />
-                </div>
+                {!newIsMinor && (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EMAIL (FACOLTATIVA)</label>
+                    <input 
+                      type="email" 
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="email@libero.it"
+                      className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EVENTO / SAGGIO</label>
                   <input 
@@ -1135,7 +1180,7 @@ export default function Page() {
                     className="w-5 h-5 accent-[#c9b074] rounded cursor-pointer"
                   />
                   <label htmlFor="newIsMinor" className="text-xs font-semibold uppercase tracking-widest text-slate-200 cursor-pointer">
-                    Allievo Minorenne (Richiede autorizzazione genitore al primo accesso)
+                    Allievo Minorenne (Richiede autorizzazione genitore al primo accesso - l'email allievo non verrà richiesta)
                   </label>
                 </div>
               </div>
@@ -1152,7 +1197,7 @@ export default function Page() {
           <div className="mb-8">
             <input
               type="text"
-              placeholder="Cerca allievo..."
+              placeholder="Cerca allievo per nome, cognome o email..."
               value={staffSearchQuery}
               onChange={(e) => setStaffSearchQuery(e.target.value)}
               className="w-full px-5 py-3.5 rounded-3xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/20 text-white placeholder-slate-400 focus:outline-none focus:border-[#c9b074] transition-colors text-sm shadow-xl"
@@ -1178,9 +1223,14 @@ export default function Page() {
                         </span>
                       </div>
                       <div className="flex flex-col gap-1 text-xs sm:text-sm font-mono mt-2 text-slate-300">
-                        {student.is_minor && (
+                        {student.is_minor ? (
                           <div className="flex items-center gap-2 text-amber-200/90 font-sans text-xs">
                             <span>Genitore/Tutore: <strong>{student.parent_name || 'Non specificato'}</strong> ({student.parent_email || 'Nessuna email'})</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-slate-200">
+                            <Mail size={14} />
+                            <span>Email: {student.email || "Non registrata"}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2">
@@ -1193,17 +1243,13 @@ export default function Page() {
                             )}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-slate-200">
-                          <Mail size={14} />
-                          <span>Email: {student.email || "Non registrata"}</span>
-                        </div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <button 
-                          onClick={() => handleResetStudentPassword(student.id, student.name, student.surname, student.email)}
+                          onClick={() => handleResetStudentPassword(student)}
                           className="flex items-center gap-1.5 border border-[#c9b074]/40 text-[#c9b074] hover:bg-[#c9b074]/10 text-xs px-3.5 py-2 rounded-full transition-all active:scale-95 cursor-pointer font-medium"
                         >
                           <Key size={14} />
@@ -1377,7 +1423,7 @@ export default function Page() {
                 </div>
               )}
 
-              {currentStudent.is_minor && (
+              {currentStudent.is_minor ? (
                 <div className="space-y-4 p-4 bg-white/5 rounded-2xl border border-white/10">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-[#c9b074]">
                     Informazioni Genitore / Tutore Legale (Obbligatorie)
@@ -1389,7 +1435,7 @@ export default function Page() {
                     </label>
                     <input
                       type="text"
-                      required={currentStudent.is_minor}
+                      required
                       value={parentNameInput}
                       onChange={(e) => setParentNameInput(e.target.value)}
                       placeholder="es. Maria Rossi"
@@ -1403,12 +1449,27 @@ export default function Page() {
                     </label>
                     <input
                       type="email"
-                      required={currentStudent.is_minor}
+                      required
                       value={parentEmailInput}
                       onChange={(e) => setParentEmailInput(e.target.value)}
                       placeholder="genitore@example.com"
                       className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 text-sm text-white focus:outline-none focus:border-[#c9b074]"
                     />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email Personale</label>
+                  <div className="relative">
+                    <input 
+                      type="email" 
+                      value={studentEmailInput} 
+                      onChange={(e) => setStudentEmailInput(e.target.value)} 
+                      required 
+                      placeholder="email@libero.it"
+                      className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pl-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
+                    />
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   </div>
                 </div>
               )}
@@ -1469,7 +1530,7 @@ export default function Page() {
             </div>
             <form onSubmit={handlePasswordRecoverySubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email</label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email (Personale o Genitore se minorenne)</label>
                 <div className="relative">
                   <input 
                     type="email" 
@@ -1849,11 +1910,11 @@ export default function Page() {
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <h3 className="font-bold text-white mb-1 font-playfair">2. Configurazione Account e Minorenni</h3>
-                <p>Se l'allievo è minorenne, durante il primo accesso verrà richiesto obbligatoriamente di inserire nome, cognome e email del genitore o tutore legale.</p>
+                <p>Se l'allievo è minorenne, durante il primo accesso verrà richiesto obbligatoriamente di inserire nome, cognome e email del genitore o tutore legale. L'email personale dell'allievo non verrà salvata.</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <h3 className="font-bold text-white mb-1 font-playfair">3. Recupero Password</h3>
-                <p>Usa il link di recupero nella schermata di login oppure contatta la segreteria.</p>
+                <p>Usa il link di recupero nella schermata di login oppure contatta la segreteria. Per i minorenni, i dati di recupero vengono inviati esclusivamente all'email del genitore.</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <h3 className="font-bold text-white mb-1 font-playfair">4. Problemi con l'Accesso</h3>
