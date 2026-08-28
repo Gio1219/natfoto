@@ -5,8 +5,9 @@ import Image from "next/image";
 import { 
   Lock, LogOut, Plus, Trash2, Key, X, 
   Download, Unlock, CheckSquare, Square, Archive, Check, ZoomIn, FolderPlus,
-  Eye, EyeOff, Mail, ArrowLeft, ChevronDown, HelpCircle, Loader2,
-  FileSpreadsheet, FileText, Copy, Share2, ChevronLeft, ChevronRight
+  Eye, EyeOff, Mail, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, HelpCircle, Loader2,
+  FileSpreadsheet, FileText, Copy, Share2, Filter,
+  Upload, Users, ShieldAlert, UserCheck, Sparkles
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
@@ -30,7 +31,7 @@ interface Student {
   surname: string;
   number: string;
   email?: string | null;
-  password: string;
+  password?: string;
   has_changed_password?: boolean;
   is_minor?: boolean;
   parent_name?: string | null;
@@ -130,36 +131,29 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
 };
 
 export default function Page() {
-  const [authStep, setAuthStep] = useState<'login' | 'change-password' | 'dashboard' | 'forgot-password'>('login');
+  const [authStep, setAuthStep] = useState<'login' | 'change-password' | 'dashboard'>('login');
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
 
   const [loginName, setLoginName] = useState("");
   const [loginSurname, setLoginSurname] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [isRecovering, setIsRecovering] = useState(false);
-
-  const [newPasswordInput, setNewPasswordInput] = useState("");
-  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
-  const [studentEmailInput, setStudentEmailInput] = useState("");
   const [parentNameInput, setParentNameInput] = useState("");
   const [parentEmailInput, setParentEmailInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkInputText, setBulkInputText] = useState("");
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState("");
   const [adminPasswordError, setAdminPasswordError] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
-  // Gestione Zoom e Playlist mobile
+  // Zoom e Playlist foto
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
   const [activePhotosList, setActivePhotosList] = useState<string[]>([]);
   const [zoomCurrentIndex, setZoomCurrentIndex] = useState<number>(0);
@@ -175,9 +169,9 @@ export default function Page() {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Single Student State
   const [newNome, setNewNome] = useState("");
   const [newCognome, setNewCognome] = useState("");
-  const [newEmail, setNewEmail] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [newIsMinor, setNewIsMinor] = useState(false);
   const [newEventoInput, setNewEventoInput] = useState("");
@@ -261,8 +255,8 @@ export default function Page() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const configuredAdminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "nat-admin";
-    if (adminPasswordInput === configuredAdminPassword) {
+    const configuredAdminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    if (configuredAdminPassword && adminPasswordInput === configuredAdminPassword) {
       setIsAdmin(true);
       setIsModalOpen(false);
       setAdminPasswordInput("");
@@ -286,12 +280,11 @@ export default function Page() {
         .select("*")
         .ilike('name', loginName.trim())
         .ilike('surname', loginSurname.trim())
-        .eq('password', loginPassword.trim())
         .single();
 
       if (error || !data) {
-        setLoginError("Credenziali non valide. Controlla nome, cognome e password.");
-        toast.error("Credenziali non valide");
+        setLoginError("Allievo non trovato. Controlla nome e cognome inseriti.");
+        toast.error("Allievo non trovato");
         return;
       }
 
@@ -309,10 +302,6 @@ export default function Page() {
 
       setCurrentStudent(formattedStudent as Student);
       setSelectedCourseFilter(null);
-      
-      if (!formattedStudent.is_minor && formattedStudent.email) {
-        setStudentEmailInput(formattedStudent.email);
-      }
 
       if (formattedStudent.has_changed_password === true) {
         setAuthStep('dashboard');
@@ -321,11 +310,11 @@ export default function Page() {
         setAuthStep('change-password');
         setParentNameInput(formattedStudent.parent_name || "");
         setParentEmailInput(formattedStudent.parent_email || "");
-        toast.info("Primo accesso: configura la tua password");
+        toast.info("Primo accesso: configura i tuoi dati");
       }
 
-      setLoginPassword("");
-      setShowLoginPassword(false);
+      setLoginName("");
+      setLoginSurname("");
     } catch {
       setLoginError("Si è verificato un errore durante l'accesso.");
       toast.error("Errore di connessione");
@@ -334,93 +323,9 @@ export default function Page() {
     }
   };
 
-  const handlePasswordRecoverySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordError("");
-    setIsRecovering(true);
-
-    const email = recoveryEmail.trim();
-    if (!email) {
-      toast.error("Inserisci un indirizzo email valido.");
-      setIsRecovering(false);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("*")
-        .or(`email.ilike.${email},parent_email.ilike.${email}`)
-        .single();
-
-      if (error || !data) {
-        toast.error("Indirizzo email non trovato.");
-        return;
-      }
-
-      const student = data as Student;
-      // Il minorenne deve ricevere il codice ESCLUSIVAMENTE all'email del genitore.
-      const targetEmail = student.is_minor ? student.parent_email : student.email;
-
-      if (!targetEmail) {
-        toast.error("Non è configurata un'email valida per questo account.");
-        return;
-      }
-
-      const randomNums = Math.floor(Math.random() * 900 + 100);
-      const letters = "abcdefghjkmnpqrstuvwxyz"; 
-      const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
-      const newTempPassword = `${student.name.toLowerCase().trim()}.${student.surname.toLowerCase().trim()}.${randomNums}${randomLets}`;
-
-      const { error: updateError } = await supabase
-        .from("students")
-        .update({ password: newTempPassword, has_changed_password: false })
-        .eq("id", student.id);
-
-      if (updateError) {
-        toast.error("Errore durante il reset della password.");
-        return;
-      }
-
-      try {
-        await fetch("/api/send-credentials", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: targetEmail.trim(),
-            name: student.name,
-            surname: student.surname,
-            password: newTempPassword,
-          }),
-        });
-      } catch (mailErr) {
-        console.error("Errore invio email:", mailErr);
-      }
-
-      toast.success("Ti è stata inviata un'email con la nuova password temporanea.");
-      setRecoveryEmail("");
-      setAuthStep('login');
-    } catch {
-      toast.error("Si è verificato un errore durante il recupero.");
-    } finally {
-      setIsRecovering(false);
-    }
-  };
-
   const handleUpdatePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError("");
-
-    if (newPasswordInput !== confirmPasswordInput) {
-      setPasswordError("Le password non coincidono.");
-      toast.error("Le password non coincidono");
-      return;
-    }
-    if (newPasswordInput.length < 6) {
-      setPasswordError("La password deve essere di almeno 6 caratteri.");
-      toast.error("Password troppo corta");
-      return;
-    }
 
     if (!currentStudent) return;
 
@@ -430,30 +335,17 @@ export default function Page() {
         toast.error("Dati genitore obbligatori");
         return;
       }
-    } else {
-      if (!studentEmailInput.trim()) {
-        setPasswordError("Inserisci un indirizzo email valido.");
-        toast.error("Inserisci un'email valida");
-        return;
-      }
     }
 
-    // Logica differenziata per Payload Database 
     const updatePayload = currentStudent.is_minor ? {
-      password: newPasswordInput,
-      email: null, // Non salviamo né richiediamo email personale per i minorenni
       parent_name: parentNameInput.trim(),
       parent_email: parentEmailInput.trim(),
       has_changed_password: true
     } : {
-      password: newPasswordInput,
-      email: studentEmailInput.trim(),
       parent_name: null,
       parent_email: null,
       has_changed_password: true
     };
-
-    const targetEmail = currentStudent.is_minor ? parentEmailInput.trim() : studentEmailInput.trim();
 
     try {
       const { error } = await supabase
@@ -463,39 +355,8 @@ export default function Page() {
 
       if (error) throw error;
 
-      try {
-        // Email di conferma all'utente o genitore
-        await fetch("/api/send-confirmation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: targetEmail,
-            name: currentStudent.name,
-            surname: currentStudent.surname,
-          }),
-        });
-
-        // Email di notifica primo accesso all'Accademia
-        const emailAccademia = "latuaemail@example.com"; // <-- INSERISCI QUI LA TUA EMAIL O QUELLA DELL'ACCADEMIA
-        await fetch("/api/send-academy-notification", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: emailAccademia,
-            name: currentStudent.name,
-            surname: currentStudent.surname,
-            isMinor: currentStudent.is_minor,
-            parentName: parentNameInput.trim()
-          }),
-        });
-      } catch (mailErr) {
-        console.error("Errore invio email:", mailErr);
-      }
-
       setCurrentStudent({ 
         ...currentStudent, 
-        password: updatePayload.password,
-        email: updatePayload.email,
         parent_name: updatePayload.parent_name || undefined,
         parent_email: updatePayload.parent_email || undefined,
         has_changed_password: true 
@@ -503,14 +364,9 @@ export default function Page() {
       
       setAuthStep('dashboard');
       setSelectedPhotos([]);
-      setNewPasswordInput("");
-      setConfirmPasswordInput("");
-      setStudentEmailInput("");
       setParentNameInput("");
       setParentEmailInput("");
-      setShowNewPassword(false);
-      setShowConfirmPassword(false);
-      toast.success("Password aggiornata e email di conferma inviate!");
+      toast.success("Dati configurati con successo!");
     } catch {
       setPasswordError("Errore durante il salvataggio dei dati.");
       toast.error("Errore durante il salvataggio");
@@ -518,14 +374,9 @@ export default function Page() {
   };
 
   const handleResetStudentPassword = async (student: Student) => {
-    const randomNums = Math.floor(Math.random() * 900 + 100);
-    const letters = "abcdefghjkmnpqrstuvwxyz"; 
-    const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
-    const newTempPassword = `${student.name.toLowerCase().trim()}.${student.surname.toLowerCase().trim()}.${randomNums}${randomLets}`;
-
     const { error } = await supabase
       .from("students")
-      .update({ password: newTempPassword, has_changed_password: false })
+      .update({ has_changed_password: false })
       .eq("id", student.id);
 
     if (error) {
@@ -533,48 +384,84 @@ export default function Page() {
       return;
     }
 
-    const targetEmail = student.is_minor ? student.parent_email : student.email;
-
-    if (targetEmail && targetEmail.trim() !== "") {
-      try {
-        await fetch("/api/send-credentials", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: targetEmail.trim(),
-            name: student.name,
-            surname: student.surname,
-            password: newTempPassword,
-          }),
-        });
-        toast.success(`Password rigenerata e inviata a ${targetEmail}`);
-      } catch (mailErr) {
-        console.error("Errore invio email:", mailErr);
-        toast.warning("Password rigenerata, ma c'è stato un problema nell'invio dell'email.");
-      }
-    } else {
-      toast.warning("Password rigenerata, ma non è associata nessuna email valida per questo utente.");
-    }
-    
+    toast.success(`Stato di primo accesso ripristinato per ${student.name}`);
     fetchStudents();
   };
 
+  const handleBulkInsert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkInputText.trim()) return;
+
+    const lines = bulkInputText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) return;
+
+    const newStudentsPayload: any[] = [];
+    let count = 0;
+
+    for (const line of lines) {
+      const parts = line.split(",").map(p => p.trim());
+      if (parts.length < 2) continue;
+
+      const [nome, cognome, isMinorRaw, parentEmailVal, corsoVal, eventoVal] = parts;
+      const isMinor = isMinorRaw?.toLowerCase() === "si" || isMinorRaw?.toLowerCase() === "sì" || isMinorRaw?.toLowerCase() === "true";
+      const initials = `${nome[0] || ""}${cognome[0] || ""}`.toUpperCase();
+
+      const coursesList = (corsoVal || "Pianoforte")
+        .split(";")
+        .map(c => ({ name: c.trim(), photos: [] }));
+
+      newStudentsPayload.push({
+        id: crypto.randomUUID(),
+        initials,
+        name: nome,
+        surname: cognome,
+        number: "N/D",
+        password: "-",
+        has_changed_password: false,
+        is_minor: isMinor,
+        parent_name: isMinor ? "Genitore" : null,
+        parent_email: isMinor ? (parentEmailVal || null) : null,
+        courses: coursesList,
+        events: [{ 
+          eventName: eventoVal || "Saggio Principale", 
+          description: "Saggio di fine anno accademico", 
+          courses: coursesList 
+        }]
+      });
+      count++;
+    }
+
+    if (newStudentsPayload.length === 0) {
+      toast.error("Formato dati non valido.");
+      return;
+    }
+
+    const { error } = await supabase.from("students").insert(newStudentsPayload);
+    if (error) {
+      toast.error(`Errore durante l'importazione: ${error.message}`);
+    } else {
+      toast.success(`Importati con successo ${count} allievi!`);
+      setBulkInputText("");
+      setIsBulkModalOpen(false);
+      fetchStudents();
+    }
+  };
+
   const exportStudentsCSV = () => {
-    const headers = ["Nome", "Cognome", "Minorenne", "Genitore", "Email Genitore", "Email Personale", "Password"];
+    const headers = ["Nome", "Cognome", "Minorenne", "Genitore", "Email Genitore", "Primo Accesso Fatto"];
     const rows = students.map(s => [
       s.name, 
       s.surname, 
       s.is_minor ? "Sì" : "No", 
       s.parent_name || "", 
       s.parent_email || "", 
-      s.email || "", 
-      s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password
+      s.has_changed_password ? "Sì" : "No"
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "elenco_allievi_password.csv");
+    link.setAttribute("download", "elenco_allievi.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -582,12 +469,12 @@ export default function Page() {
   };
 
   const exportStudentsTXT = () => {
-    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Minorenne: ${s.is_minor ? 'Sì (Genitore: ' + (s.parent_name || 'N/D') + ' - ' + (s.parent_email || 'N/D') + ')' : 'No (Email: ' + (s.email || 'N/D') + ')'} | Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
+    const textContent = students.map(s => `Nome: ${s.name} | Cognome: ${s.surname} | Minorenne: ${s.is_minor ? 'Sì (Genitore: ' + (s.parent_name || 'N/D') + ' - ' + (s.parent_email || 'N/D') + ')' : 'No'} | Primo Accesso Completato: ${s.has_changed_password ? "Sì" : "No"}`).join("\n");
     const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "elenco_allievi_password.txt";
+    link.download = "elenco_allievi.txt";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -596,7 +483,7 @@ export default function Page() {
   };
 
   const copyStudentsToClipboard = () => {
-    const textContent = students.map(s => `${s.name} ${s.surname} ${s.is_minor ? '(Minorenne - Genitore: ' + (s.parent_name || 'N/D') + ')' : '(Maggiorenne)'} - Password: ${s.has_changed_password ? "[Password Definitiva Personalizzata]" : s.password}`).join("\n");
+    const textContent = students.map(s => `${s.name} ${s.surname} ${s.is_minor ? '(Minorenne - Genitore: ' + (s.parent_name || 'N/D') + ')' : '(Maggiorenne)'} - Primo Accesso: ${s.has_changed_password ? "Completato" : "Da fare"}`).join("\n");
     navigator.clipboard.writeText(textContent);
     toast.success("Elenco copiato negli appunti!");
   };
@@ -692,11 +579,6 @@ export default function Page() {
       .map((c) => c.trim())
       .filter((c) => c.length > 0)
       .map((courseName) => ({ name: courseName, photos: [] }));
-
-    const randomNums = Math.floor(Math.random() * 900 + 100);
-    const letters = "abcdefghjkmnpqrstuvwxyz"; 
-    const randomLets = letters[Math.floor(Math.random() * letters.length)] + letters[Math.floor(Math.random() * letters.length)];
-    const generatedPassword = `${newNome.toLowerCase().trim()}.${newCognome.toLowerCase().trim()}.${randomNums}${randomLets}`;
     
     const newStudent = {
       id: crypto.randomUUID(),
@@ -704,8 +586,7 @@ export default function Page() {
       name: newNome.trim(),
       surname: newCognome.trim(),
       number: newNumber.trim() || "N/D",
-      email: newIsMinor ? null : (newEmail.trim() ? newEmail.trim() : null),
-      password: generatedPassword,
+      password: "-",
       has_changed_password: false,
       is_minor: newIsMinor,
       parent_name: null,
@@ -728,7 +609,6 @@ export default function Page() {
     fetchStudents();
     setNewNome("");
     setNewCognome("");
-    setNewEmail("");
     setNewNumber("");
     setNewIsMinor(false);
     setNewEventoInput("");
@@ -949,15 +829,15 @@ export default function Page() {
   const filteredStaffStudents = students.filter(st => {
     const fullName = `${st.name} ${st.surname}`.toLowerCase();
     const query = staffSearchQuery.toLowerCase();
-    const emailMatch = st.email?.toLowerCase().includes(query) || st.parent_email?.toLowerCase().includes(query) || false;
-    return fullName.includes(query) || emailMatch;
+    const parentMatch = st.parent_name?.toLowerCase().includes(query) || st.parent_email?.toLowerCase().includes(query) || false;
+    return fullName.includes(query) || parentMatch;
   });
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-120 h-120 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-120 h-120 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="w-56 h-14 bg-white/10 rounded-xl animate-pulse mb-8" />
         <div className="w-full max-w-md space-y-4">
           <div className="h-14 bg-white/10 rounded-xl animate-pulse" />
@@ -971,8 +851,10 @@ export default function Page() {
   return (
     <div className="min-h-screen font-sans antialiased bg-slate-950 text-slate-100 selection:bg-[#c9b074] selection:text-black relative overflow-hidden transition-colors duration-300 flex flex-col">
 
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Sfondi Ambientali Soft Glow */}
+      <div className="absolute -top-40 -left-40 w-120 h-120 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/2 -right-40 w-120 h-120 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-40 left-1/3 w-120 h-120 bg-[#c9b074]/10 rounded-full blur-[120px] pointer-events-none" />
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
@@ -981,6 +863,7 @@ export default function Page() {
         }
       `}</style>
 
+      {/* Header Principale */}
       <header className="relative z-20 w-full px-4 sm:px-10 py-4 border-b border-[#c9b074]/20 bg-slate-950/90 backdrop-blur-xl flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center justify-start flex-1">
           {!isAdmin && authStep === 'login' && (
@@ -1001,7 +884,7 @@ export default function Page() {
               alt="N.A.T. Nuova Accademia Toscanini" 
               width={500} 
               height={85} 
-              className="h-full w-auto object-contain drop-shadow-[0_4px_13px_rgba(201,176,116,0.15)] brightness-110"
+              className="h-full w-auto object-contain drop-shadow-[0_4px_13px_rgba(201,176,116,0.2)] brightness-110"
               priority
             />
           </div>
@@ -1011,18 +894,18 @@ export default function Page() {
           {isAdmin ? (
             <button 
               onClick={() => { setIsAdmin(false); toast.info("Uscito dall'area staff"); }}
-              className="flex items-center gap-2 px-4 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer bg-white/5 hover:bg-white/10 border-white/15 text-white"
+              className="flex items-center gap-2 px-4 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer bg-white/5 hover:bg-white/10 border-white/15 text-white shadow-sm"
             >
               <LogOut size={15} className="text-red-400" />
-              <span className="hidden sm:inline">Esci</span>
+              <span className="hidden sm:inline">Esci Staff</span>
             </button>
           ) : authStep === 'dashboard' && currentStudent ? (
             <button 
               onClick={() => { setCurrentStudent(null); setAuthStep('login'); setSelectedPhotos([]); toast.info("Sessione chiusa"); }}
-              className="flex items-center gap-2 px-3.5 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer bg-red-600/20 hover:bg-red-600/30 border-red-500/30 text-white"
+              className="flex items-center gap-2 px-3.5 py-2 border rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform active:scale-95 cursor-pointer bg-red-600/20 hover:bg-red-600/30 border-red-500/30 text-white shadow-sm"
             >
               <LogOut size={15} className="text-red-400" />
-              <span className="truncate max-w-[100px] sm:max-w-none">Esci ({currentStudent.name})</span>
+              <span className="truncate max-w-25 sm:max-w-none">Esci ({currentStudent.name})</span>
             </button>
           ) : (
             <button 
@@ -1037,28 +920,43 @@ export default function Page() {
       </header>
 
       {isAdmin ? (
+        /* PANNELLO STAFF / ADMIN */
         <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-28 flex-1 w-full">
-          <div className="mb-10">
-            <h1 className="text-3xl sm:text-6xl font-normal font-playfair text-white mb-3 leading-tight">
-              Gestione Allievi
-            </h1>
-            <p className="text-sm sm:text-lg text-slate-300 italic">
-              (Pannello Staff) - Gli allievi sono ordinati automaticamente in ordine alfabetico per cognome.
-            </p>
+          <div className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={18} className="text-[#c9b074]" />
+                <span className="text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074]">Pannello Direzione</span>
+              </div>
+              <h1 className="text-3xl sm:text-6xl font-normal font-playfair text-white leading-tight">
+                Gestione Allievi
+              </h1>
+              <p className="text-xs sm:text-base text-slate-300 italic mt-1">
+                L'elenco allievi è ordinato automaticamente in ordine alfabetico per cognome. Gli allievi effettuano il login inserendo solo nome e cognome.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsBulkModalOpen(true)}
+              className="flex items-center justify-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-6 py-3.5 rounded-2xl transition-all active:scale-95 cursor-pointer shadow-xl border border-[#c9b074]/50"
+            >
+              <Upload size={18} />
+              <span>Inserimento Multiplo (Bulk)</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-10">
-            <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
+            <div className="border border-[#c9b074]/25 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-xl">
               <span className="text-xs uppercase tracking-widest text-slate-400">Allievi Totali</span>
               <p className="text-3xl font-playfair font-normal text-white mt-2">{students.length}</p>
             </div>
-            <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
-              <span className="text-xs uppercase tracking-widest text-slate-400">Account Attivati</span>
+            <div className="border border-[#c9b074]/25 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-xl">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Primo Accesso Effettuato</span>
               <p className="text-3xl font-playfair font-normal text-[#c9b074] mt-2">
                 {students.filter(s => s.has_changed_password).length} / {students.length}
               </p>
             </div>
-            <div className="border border-[#c9b074]/20 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-lg">
+            <div className="border border-[#c9b074]/25 rounded-3xl p-6 bg-slate-900/60 backdrop-blur-md shadow-xl">
               <span className="text-xs uppercase tracking-widest text-slate-400">Foto Totali Caricate</span>
               <p className="text-3xl font-playfair font-normal text-white mt-2">
                 {students.reduce((acc, st) => acc + getTotalPhotosCount(st), 0)}
@@ -1066,10 +964,11 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+          {/* Export Box */}
+          <div className="border border-[#c9b074]/25 rounded-4xl p-6 sm:p-8 mb-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/60 to-slate-950/85 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-xl sm:text-2xl font-playfair font-normal text-white mb-1">Esportazione Elenco Segreteria</h3>
-              <p className="text-xs sm:text-sm text-slate-300">Scarica o copia la lista completa.</p>
+              <p className="text-xs sm:text-sm text-slate-300">Scarica o copia la lista completa degli allievi registrati.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
               <button 
@@ -1096,16 +995,17 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-10 mb-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl">
+          {/* Form Singolo Allievo (Senza campi email) */}
+          <div className="border border-[#c9b074]/25 rounded-4xl p-6 sm:p-10 mb-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/60 to-slate-950/85 shadow-xl">
             <h2 className="text-2xl sm:text-4xl font-normal mb-2 font-playfair text-white">
-              Aggiungi un allievo
+              Aggiungi Allievo Singolo
             </h2>
             <p className="text-xs sm:text-sm mb-6 font-light text-slate-300">
-              Inserisci i dati per registrare un nuovo allievo nel sistema.
+              Inserisci i dati per registrare un singolo allievo. Non è necessaria alcuna password iniziale.
             </p>
 
             <form onSubmit={handleCreateStudent} className="space-y-4 sm:space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">NOME</label>
                   <input 
@@ -1128,18 +1028,6 @@ export default function Page() {
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-                {!newIsMinor && (
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EMAIL (FACOLTATIVA)</label>
-                    <input 
-                      type="email" 
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="email@libero.it"
-                      className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
-                    />
-                  </div>
-                )}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">EVENTO / SAGGIO</label>
                   <input 
@@ -1151,7 +1039,7 @@ export default function Page() {
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-1.5 md:col-span-1.5">
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">DESCRIZIONE EVENTO</label>
                   <input 
                     type="text" 
@@ -1161,7 +1049,7 @@ export default function Page() {
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-1.5 md:col-span-1.5">
                   <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">CORSI (SEPARATI DA VIRGOLA)</label>
                   <input 
                     type="text" 
@@ -1171,7 +1059,7 @@ export default function Page() {
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
-                <div className="sm:col-span-4 flex items-center gap-3 pt-2">
+                <div className="sm:col-span-3 flex items-center gap-3 pt-2">
                   <input 
                     type="checkbox"
                     id="newIsMinor"
@@ -1180,7 +1068,7 @@ export default function Page() {
                     className="w-5 h-5 accent-[#c9b074] rounded cursor-pointer"
                   />
                   <label htmlFor="newIsMinor" className="text-xs font-semibold uppercase tracking-widest text-slate-200 cursor-pointer">
-                    Allievo Minorenne (Richiede autorizzazione genitore al primo accesso - l'email allievo non verrà richiesta)
+                    Allievo Minorenne (Account collegato a Genitore/Tutore)
                   </label>
                 </div>
               </div>
@@ -1197,18 +1085,19 @@ export default function Page() {
           <div className="mb-8">
             <input
               type="text"
-              placeholder="Cerca allievo per nome, cognome o email..."
+              placeholder="Cerca allievo per nome, cognome o genitore..."
               value={staffSearchQuery}
               onChange={(e) => setStaffSearchQuery(e.target.value)}
-              className="w-full px-5 py-3.5 rounded-3xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/20 text-white placeholder-slate-400 focus:outline-none focus:border-[#c9b074] transition-colors text-sm shadow-xl"
+              className="w-full px-5 py-3.5 rounded-3xl backdrop-blur-xl bg-slate-900/60 border border-[#c9b074]/25 text-white placeholder-slate-400 focus:outline-none focus:border-[#c9b074] transition-colors text-sm shadow-xl"
             />
           </div>
 
+          {/* Lista Allievi Staff */}
           <div className="space-y-6">
             {filteredStaffStudents.map((student) => {
               const isStudentMinimized = minimizedStudents[student.id];
               return (
-                <div key={student.id} className="border border-[#c9b074]/20 rounded-4xl p-6 sm:p-8 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl transition-all">
+                <div key={student.id} className="border border-[#c9b074]/25 rounded-4xl p-6 sm:p-8 backdrop-blur-2xl bg-linear-to-b from-slate-900/60 to-slate-950/85 shadow-xl transition-all">
                   <div 
                     className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer select-none"
                     onClick={() => toggleMinimizeStudent(student.id)}
@@ -1218,30 +1107,19 @@ export default function Page() {
                         <h3 className="text-2xl sm:text-3xl font-normal font-playfair text-white">
                           {student.surname} {student.name}
                         </h3>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${student.is_minor ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-300'}`}>
-                          {student.is_minor ? 'Minorenne' : 'Maggiorenne'}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${student.is_minor ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}`}>
+                          {student.is_minor ? <ShieldAlert size={12} /> : <UserCheck size={12} />}
+                          {student.is_minor ? 'Minorenne (Account Genitore)' : 'Maggiorenne'}
                         </span>
                       </div>
                       <div className="flex flex-col gap-1 text-xs sm:text-sm font-mono mt-2 text-slate-300">
-                        {student.is_minor ? (
+                        {student.is_minor && (
                           <div className="flex items-center gap-2 text-amber-200/90 font-sans text-xs">
                             <span>Genitore/Tutore: <strong>{student.parent_name || 'Non specificato'}</strong> ({student.parent_email || 'Nessuna email'})</span>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-slate-200">
-                            <Mail size={14} />
-                            <span>Email: {student.email || "Non registrata"}</span>
-                          </div>
                         )}
-                        <div className="flex items-center gap-2">
-                          <Key size={14} />
-                          <span>
-                            Password: {student.has_changed_password ? (
-                              <span className="text-[#c9b074] italic font-sans font-medium">[Password Definitiva Personalizzata dall'Allievo]</span>
-                            ) : (
-                              <span>{student.password}</span>
-                            )}
-                          </span>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <span>Stato primo accesso: {student.has_changed_password ? <strong className="text-emerald-400">Completato</strong> : <strong className="text-amber-400">Da fare</strong>}</span>
                         </div>
                       </div>
                     </div>
@@ -1251,9 +1129,10 @@ export default function Page() {
                         <button 
                           onClick={() => handleResetStudentPassword(student)}
                           className="flex items-center gap-1.5 border border-[#c9b074]/40 text-[#c9b074] hover:bg-[#c9b074]/10 text-xs px-3.5 py-2 rounded-full transition-all active:scale-95 cursor-pointer font-medium"
+                          title="Permette all'allievo di rifare la configurazione iniziale al prossimo accesso"
                         >
                           <Key size={14} />
-                          <span>Rigenera e Invia Email</span>
+                          <span>Reset Primo Accesso</span>
                         </button>
                         <button 
                           onClick={() => handleDeleteStudent(student.id)}
@@ -1402,31 +1281,32 @@ export default function Page() {
           </div>
         </main>
       ) : authStep === 'change-password' && currentStudent ? (
+        /* PRIMO ACCESSO (CONFIGURAZIONE DATI GENITORE SE MINORENNE) */
         <main className="relative z-10 max-w-lg mx-auto px-4 pt-16 pb-28 flex-1 w-full flex items-center justify-center">
-          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl text-white w-full">
+          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/60 to-slate-950/85 shadow-2xl text-white w-full">
             <div className="text-center mb-6">
               <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#c9b074] block mb-2">Primo Accesso</span>
               <h2 className="text-3xl font-normal font-playfair">
-                {currentStudent.is_minor ? `Configurazione per: ${currentStudent.name} ${currentStudent.surname}` : `Benvenuto, ${currentStudent.name}!`}
+                {currentStudent.is_minor ? `Configurazione Genitore per: ${currentStudent.name} ${currentStudent.surname}` : `Benvenuto, ${currentStudent.name}!`}
               </h2>
               <p className="text-xs sm:text-sm mt-2 text-slate-300">
                 {currentStudent.is_minor 
-                  ? "Questo account risulta registrato come minorenne. È richiesto il consenso e l'autorizzazione di un genitore o tutore." 
-                  : "Configura password definitiva ed email."}
+                  ? "Trattandosi di un allievo minorenne, inserisci i dati del genitore o tutore legale." 
+                  : "Conferma l'accesso alla tua galleria privata."}
               </p>
             </div>
 
             <form onSubmit={handleUpdatePasswordSubmit} className="space-y-4">
               {passwordError && (
-                <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-xl text-xs font-medium">
+                <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-2xl text-xs font-medium">
                   {passwordError}
                 </div>
               )}
 
-              {currentStudent.is_minor ? (
+              {currentStudent.is_minor && (
                 <div className="space-y-4 p-4 bg-white/5 rounded-2xl border border-white/10">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-[#c9b074]">
-                    Informazioni Genitore / Tutore Legale (Obbligatorie)
+                    Informazioni Genitore / Tutore Legale
                   </h3>
                   
                   <div>
@@ -1445,7 +1325,7 @@ export default function Page() {
 
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">
-                      Email di riferimento Genitore
+                      Email Genitore
                     </label>
                     <input
                       type="email"
@@ -1457,151 +1337,137 @@ export default function Page() {
                     />
                   </div>
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email Personale</label>
-                  <div className="relative">
-                    <input 
-                      type="email" 
-                      value={studentEmailInput} 
-                      onChange={(e) => setStudentEmailInput(e.target.value)} 
-                      required 
-                      placeholder="email@libero.it"
-                      className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pl-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
-                    />
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  </div>
-                </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Nuova Password</label>
-                <div className="relative">
-                  <input 
-                    type={showNewPassword ? "text" : "password"} 
-                    value={newPasswordInput} 
-                    onChange={(e) => setNewPasswordInput(e.target.value)} 
-                    required 
-                    placeholder="Min. 6 caratteri"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
-                  />
-                  <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
-                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Conferma Password</label>
-                <div className="relative">
-                  <input 
-                    type={showConfirmPassword ? "text" : "password"} 
-                    value={confirmPasswordInput} 
-                    onChange={(e) => setConfirmPasswordInput(e.target.value)} 
-                    required 
-                    placeholder="Ripeti password"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
-                  />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
-                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
               <button 
                 type="submit" 
-                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg mt-2 flex items-center justify-center gap-2"
+                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg mt-4 flex items-center justify-center gap-2"
               >
                 <Check size={16} />
-                <span>Salva e Accedi alla Galleria</span>
-              </button>
-            </form>
-          </div>
-        </main>
-      ) : authStep === 'forgot-password' ? (
-        <main className="relative z-10 max-w-lg mx-auto px-4 pt-16 pb-28 flex-1 w-full flex items-center justify-center">
-          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl text-white w-full">
-            <button onClick={() => { setAuthStep('login'); setRecoveryEmail(""); }} className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white mb-4 cursor-pointer font-medium">
-              <ArrowLeft size={15} /> Torna al login
-            </button>
-            <div className="text-center mb-6">
-              <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#c9b074] block mb-1">Supporto</span>
-              <h2 className="text-3xl font-normal font-playfair">Recupera Password</h2>
-            </div>
-            <form onSubmit={handlePasswordRecoverySubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Email (Personale o Genitore se minorenne)</label>
-                <div className="relative">
-                  <input 
-                    type="email" 
-                    value={recoveryEmail} 
-                    onChange={(e) => setRecoveryEmail(e.target.value)} 
-                    required 
-                    placeholder="email@libero.it"
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pl-11 text-sm text-white focus:outline-none focus:border-[#c9b074]" 
-                  />
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                </div>
-              </div>
-              <button 
-                type="submit" 
-                disabled={isRecovering}
-                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg mt-2 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <Mail size={16} />
-                <span>{isRecovering ? "Invio..." : "Invia email di recupero"}</span>
+                <span>Accedi alla Galleria</span>
               </button>
             </form>
           </div>
         </main>
       ) : authStep === 'dashboard' && currentStudent ? (
+        /* AREA ALLIEVO (DISTINTA MINORENNI vs MAGGIORENNI) */
         <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-32 flex-1 w-full">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-6 border-white/10">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.25em] uppercase mb-1 text-slate-300">Area Allievo</p>
-              <h1 className="text-3xl sm:text-5xl font-normal font-playfair text-white">
-                Foto di <span className="italic text-[#c9b074]">{currentStudent.name} {currentStudent.surname}</span>
-              </h1>
+          
+          {/* Header Dashboard Allievo / Genitore */}
+          <div className="bg-linear-to-r from-slate-900/90 via-slate-900/60 to-slate-950/90 border border-[#c9b074]/30 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074] animate-pulse" />
+                <span className="text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074]">
+                  {currentStudent.is_minor ? "Area Genitore / Tutore Legale" : "Area Allievo Riservata"}
+                </span>
+              </div>
+
+              {currentStudent.is_minor ? (
+                <div>
+                  <h1 className="text-3xl sm:text-5xl font-normal font-playfair text-white">
+                    Foto di <span className="italic text-[#c9b074]">{currentStudent.name} {currentStudent.surname}</span>
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                    Account genitore collegato: <strong className="text-white">{currentStudent.parent_name || 'Genitore'}</strong> ({currentStudent.parent_email})
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h1 className="text-3xl sm:text-5xl font-normal font-playfair text-white">
+                    Galleria Personale di <span className="italic text-[#c9b074]">{currentStudent.name} {currentStudent.surname}</span>
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                    Benvenuto nel tuo spazio riservato dell'Accademia Toscanini.
+                  </p>
+                </div>
+              )}
             </div>
 
-            <button 
-              onClick={() => {
-                const allPhotos = currentStudent.events.flatMap((ev) => ev.courses.flatMap((c) => c.photos));
-                downloadZip(allPhotos, `saggio-${currentStudent.surname}-${currentStudent.name}`);
-              }}
-              disabled={isZipping || getTotalPhotosCount(currentStudent) === 0}
-              className="hidden sm:flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm px-5 py-3 rounded-full transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg"
-            >
-              <Archive size={16} />
-              <span>{isZipping ? "Creazione ZIP..." : "Scarica TUTTO (.zip)"}</span>
-            </button>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <button 
+                onClick={() => {
+                  const allPhotos = currentStudent.events.flatMap((ev) => ev.courses.flatMap((c) => c.photos));
+                  downloadZip(allPhotos, `saggio-${currentStudent.surname}-${currentStudent.name}`);
+                }}
+                disabled={isZipping || getTotalPhotosCount(currentStudent) === 0}
+                className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm px-6 py-3.5 rounded-2xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg"
+              >
+                <Archive size={18} />
+                <span>{isZipping ? "Creazione ZIP..." : "Scarica Tutte le Foto (.zip)"}</span>
+              </button>
+            </div>
           </div>
 
+          {/* Filtro Rapido per Corso */}
+          {(() => {
+            const allCourses = Array.from(
+              new Set(currentStudent.events.flatMap(e => e.courses.map(c => c.name)))
+            );
+            if (allCourses.length <= 1) return null;
+
+            return (
+              <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
+                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 mr-2 shrink-0 uppercase tracking-wider">
+                  <Filter size={14} className="text-[#c9b074]" /> Filtra:
+                </span>
+                <button
+                  onClick={() => setSelectedCourseFilter(null)}
+                  className={`px-4 py-2 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                    selectedCourseFilter === null 
+                      ? "bg-[#c9b074] text-black font-bold shadow-md" 
+                      : "bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  Tutti i corsi
+                </button>
+                {allCourses.map((courseName) => (
+                  <button
+                    key={courseName}
+                    onClick={() => setSelectedCourseFilter(courseName)}
+                    className={`px-4 py-2 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                      selectedCourseFilter === courseName 
+                        ? "bg-[#c9b074] text-black font-bold shadow-md" 
+                        : "bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    {courseName}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Barra Fluttuante per Selezione Multipla Foto */}
           {selectedPhotos.length > 0 && (
-            <div className="sticky top-4 z-40 backdrop-blur-xl border rounded-2xl p-4 mb-8 flex justify-between items-center shadow-2xl bg-slate-900/90 border-[#c9b074]/40 text-white animate-fadeIn">
-              <div className="flex items-center gap-2.5 text-xs sm:text-sm font-medium">
-                <span className="w-7 h-7 rounded-full bg-[#c9b074] text-black font-bold flex items-center justify-center text-xs">
+            <div className="sticky top-6 z-40 backdrop-blur-2xl border rounded-2xl p-4 mb-8 flex justify-between items-center shadow-2xl bg-slate-900/90 border-[#c9b074]/50 text-white animate-fadeIn">
+              <div className="flex items-center gap-3 text-xs sm:text-sm font-medium">
+                <span className="w-8 h-8 rounded-xl bg-[#c9b074] text-black font-bold flex items-center justify-center text-xs shadow-md">
                   {selectedPhotos.length}
                 </span>
-                <span>selezionate</span>
+                <span>foto selezionate</span>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setSelectedPhotos([])} className="text-xs sm:text-sm text-slate-300 hover:text-white font-medium cursor-pointer">
-                  Deseleziona
+                <button 
+                  onClick={() => setSelectedPhotos([])} 
+                  className="text-xs text-slate-400 hover:text-white font-medium cursor-pointer transition-colors px-2 py-1"
+                >
+                  Deseleziona tutte
                 </button>
                 <button 
                   onClick={() => downloadZip(selectedPhotos, `foto-selezionate-${currentStudent.surname}`)}
                   disabled={isZipping}
-                  className="flex items-center gap-1.5 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-4 py-2 rounded-full transition-all active:scale-95 cursor-pointer shadow"
+                  className="flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer shadow-lg"
                 >
-                  <Download size={14} />
-                  <span>Scarica ZIP</span>
+                  <Download size={15} />
+                  <span>Scarica Selezione (.zip)</span>
                 </button>
               </div>
             </div>
           )}
 
-          <div className="space-y-8">
+          {/* Lista Eventi e Corsi */}
+          <div className="space-y-10">
             {currentStudent.events.map((event, eIdx) => {
               const filteredCourses = event.courses.filter(c => selectedCourseFilter === null || c.name === selectedCourseFilter);
               if (filteredCourses.length === 0) return null;
@@ -1611,79 +1477,89 @@ export default function Page() {
               const isMinimized = minimizedEvents[eIdx];
 
               return (
-                <div key={eIdx} className="border-2 border-[#c9b074]/30 rounded-4xl p-5 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/60 to-slate-950/85 shadow-xl transition-all">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/15">
-                    <div className="flex items-center gap-3">
+                <div key={eIdx} className="border border-[#c9b074]/25 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/50 to-slate-950/80 shadow-2xl transition-all">
+                  
+                  {/* Header Evento */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-white/10">
+                    <div className="flex items-center gap-4">
                       <button 
                         onClick={() => toggleMinimizeEvent(eIdx)}
-                        className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[#c9b074] transition-all active:scale-95 cursor-pointer shrink-0"
+                        className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-[#c9b074] transition-all active:scale-95 cursor-pointer shrink-0"
                       >
                         <ChevronDown size={20} className={`transition-transform duration-300 ${isMinimized ? "-rotate-90" : "rotate-0"}`} />
                       </button>
                       <div>
-                        <span className="text-[10px] sm:text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074] block mb-1">Evento</span>
+                        <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-[#c9b074] block mb-0.5">Evento Accademico</span>
                         <h2 className="text-2xl sm:text-4xl font-normal font-playfair text-white">{event.eventName}</h2>
-                        {event.description && <p className="text-xs sm:text-sm text-slate-200 mt-1 font-light">{event.description}</p>}
+                        {event.description && <p className="text-xs sm:text-sm text-slate-300 mt-1 font-light">{event.description}</p>}
                       </div>
                     </div>
 
                     {allEventPhotos.length > 0 && !isMinimized && (
                       <button 
                         onClick={() => toggleSelectAllPhotos(allEventPhotos)}
-                        className="flex items-center gap-1.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-full transition-all active:scale-95 cursor-pointer shadow"
+                        className="flex items-center justify-center gap-2 text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white px-4 py-2.5 rounded-2xl transition-all active:scale-95 cursor-pointer shadow-sm"
                       >
                         {isAllEventSelected ? <CheckSquare size={16} className="text-[#c9b074]" /> : <Square size={16} />}
-                        <span>{isAllEventSelected ? "Deseleziona tutto" : "Seleziona tutto"}</span>
+                        <span>{isAllEventSelected ? "Deseleziona Evento" : "Seleziona Tutto l'Evento"}</span>
                       </button>
                     )}
                   </div>
 
+                  {/* Corsi */}
                   {!isMinimized && (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                       {filteredCourses.map((course, cIdx) => {
                         const isAllCourseSelected = course.photos.length > 0 && course.photos.every((p) => selectedPhotos.includes(p));
 
                         return (
-                          <div key={cIdx} className="border border-[#c9b074]/20 rounded-3xl p-4 sm:p-6 bg-black/40">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10">
-                              <h3 className="text-xl sm:text-2xl font-normal font-playfair flex items-center gap-2.5 text-white">
-                                <span className="w-2.5 h-2.5 rounded-full bg-[#c9b074]"></span>
-                                Corso di {course.name}
+                          <div key={cIdx} className="border border-white/10 rounded-3xl p-5 sm:p-7 bg-slate-950/40">
+                            
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-white/5">
+                              <h3 className="text-lg sm:text-2xl font-normal font-playfair flex items-center gap-3 text-white">
+                                <span className="w-2 h-2 rounded-full bg-[#c9b074]" />
+                                {currentStudent.is_minor 
+                                  ? `Foto di ${currentStudent.name} ${currentStudent.surname} — Corso di ${course.name}`
+                                  : `Corso di ${course.name}`}
                               </h3>
                               {course.photos.length > 0 && (
                                 <button 
                                   onClick={() => toggleSelectAllPhotos(course.photos)}
-                                  className="flex items-center gap-1.5 text-xs text-slate-200 hover:text-white cursor-pointer font-medium"
+                                  className="flex items-center gap-2 text-xs text-slate-300 hover:text-[#c9b074] cursor-pointer font-medium transition-colors"
                                 >
-                                  {isAllCourseSelected ? <CheckSquare size={16} className="text-[#c9b074]" /> : <Square size={16} />}
+                                  {isAllCourseSelected ? <CheckSquare size={15} className="text-[#c9b074]" /> : <Square size={15} />}
                                   <span>{isAllCourseSelected ? "Deseleziona corso" : "Seleziona corso"}</span>
                                 </button>
                               )}
                             </div>
 
+                            {/* Foto Grid */}
                             {course.photos.length > 0 ? (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-5">
                                 {course.photos.map((photoUrl, pIdx) => {
                                   const isSelected = selectedPhotos.includes(photoUrl);
                                   return (
                                     <div 
                                       key={pIdx} 
-                                      className={`relative group rounded-2xl overflow-hidden border cursor-pointer transition-all aspect-square bg-black shadow-lg ${
-                                        isSelected ? "border-[#c9b074] ring-2 ring-[#c9b074]/60 scale-[1.01]" : "border-white/15"
+                                      className={`relative group rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 aspect-square bg-slate-900 shadow-md ${
+                                        isSelected 
+                                          ? "border-[#c9b074] ring-2 ring-[#c9b074]/60 scale-[1.02] shadow-xl" 
+                                          : "border-white/10 hover:border-white/30 hover:scale-[1.01]"
                                       }`}
                                     >
                                       <img 
                                         src={photoUrl} 
-                                        alt={`Foto ${course.name}`} 
+                                        alt={`Foto ${currentStudent.name} ${currentStudent.surname}`} 
                                         onClick={() => openZoomWithList(photoUrl, course.photos)}
-                                        className="w-full h-full object-cover" 
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                                       />
+                                      
                                       <div 
                                         onClick={() => openZoomWithList(photoUrl, course.photos)}
-                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center sm:flex pointer-events-none"
+                                        className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-3 pointer-events-none"
                                       >
-                                        <span className="hidden sm:inline-block bg-black/75 text-white text-xs px-3 py-1.5 rounded-full border border-white/20 shadow">
-                                          <ZoomIn size={14} className="inline mr-1 text-[#c9b074]" /> Ingrandisci
+                                        <span className="hidden sm:inline-flex items-center gap-1.5 bg-black/80 text-white text-[11px] font-medium px-3 py-1.5 rounded-xl border border-white/20 shadow-lg">
+                                          <ZoomIn size={13} className="text-[#c9b074]" /> Ingrandisci
                                         </span>
                                       </div>
 
@@ -1691,10 +1567,12 @@ export default function Page() {
                                         onClick={(e) => { e.stopPropagation(); togglePhotoSelection(photoUrl); }}
                                         className="absolute top-2.5 left-2.5 z-10"
                                       >
-                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                                          isSelected ? "bg-[#c9b074] text-black shadow scale-110" : "bg-black/60 border border-white/40 text-transparent"
+                                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
+                                          isSelected 
+                                            ? "bg-[#c9b074] text-black shadow-md scale-105" 
+                                            : "bg-black/60 border border-white/30 text-transparent hover:bg-black/80"
                                         }`}>
-                                          <Check size={14} className="stroke-[3]" />
+                                          <Check size={14} className="stroke-3" />
                                         </div>
                                       </div>
 
@@ -1704,7 +1582,7 @@ export default function Page() {
                                           e.stopPropagation();
                                           handleDownloadSinglePhoto(photoUrl, `foto-${currentStudent.name}-${event.eventName}-${course.name}-${pIdx + 1}.jpg`);
                                         }}
-                                        className="absolute top-2.5 right-2.5 bg-black/70 text-white p-2 rounded-full shadow z-20 cursor-pointer"
+                                        className="absolute top-2.5 right-2.5 bg-black/60 hover:bg-black/90 text-white p-2 rounded-xl backdrop-blur-md border border-white/10 shadow-md z-20 cursor-pointer transition-all active:scale-95"
                                       >
                                         <Download size={13} />
                                       </button>
@@ -1713,7 +1591,7 @@ export default function Page() {
                                 })}
                               </div>
                             ) : (
-                              <p className="text-sm italic text-slate-400">Nessuna foto disponibile per questo corso.</p>
+                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questo corso.</p>
                             )}
                           </div>
                         );
@@ -1725,11 +1603,12 @@ export default function Page() {
             })}
           </div>
 
+          {/* Floating Action Mobile */}
           <div className="fixed bottom-6 right-6 z-40 sm:hidden flex items-center gap-2">
             {selectedPhotos.length > 0 ? (
               <button
                 onClick={() => downloadZip(selectedPhotos, `foto-selezionate-${currentStudent.surname}`)}
-                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 active:scale-95 transition-transform"
+                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2 active:scale-95 transition-transform"
               >
                 <Download size={18} />
                 <span className="text-xs">Scarica ({selectedPhotos.length})</span>
@@ -1741,7 +1620,7 @@ export default function Page() {
                   downloadZip(allPhotos, `saggio-${currentStudent.surname}-${currentStudent.name}`);
                 }}
                 disabled={isZipping || getTotalPhotosCount(currentStudent) === 0}
-                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-full shadow-2xl flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
               >
                 <Archive size={18} />
                 <span className="text-xs">{isZipping ? "ZIP..." : "Scarica Tutto"}</span>
@@ -1750,20 +1629,21 @@ export default function Page() {
           </div>
         </main>
       ) : (
+        /* LOGIN SCHERMATA INIZIALE (SOLO NOME E COGNOME) */
         <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-10 lg:px-12 py-8 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20">
           <div className="w-full lg:w-7/12 flex flex-col items-center lg:items-start text-center lg:text-left space-y-6">
             <span className="text-xs font-semibold tracking-[0.4em] uppercase text-[#c9b074]">NUOVA ACCADEMIA TOSCANINI</span>
             <h1 className="text-5xl sm:text-6xl lg:text-8xl font-normal leading-[1.1] tracking-tight font-playfair text-white">
               Accedi alla tua <br />
-              <span className="italic font-normal bg-gradient-to-r from-white via-[#c9b074] to-slate-300 bg-clip-text text-transparent">Galleria Privata</span>
+              <span className="italic font-normal bg-linear-to-r from-white via-[#c9b074] to-slate-300 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
             <p className="text-sm sm:text-lg max-w-2xl font-normal leading-relaxed text-slate-200">
-              Inserisci le credenziali ufficiali fornite dalla segreteria dell'accademia per esplorare, selezionare e scaricare i tuoi ricordi in alta definizione.
+              Inserisci semplicemente il tuo nome e cognome registrati dalla segreteria dell'accademia per esplorare, selezionare e scaricare i tuoi ricordi in alta definizione.
             </p>
           </div>
 
           <div className="w-full lg:w-5/12 max-w-md">
-            <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-gradient-to-b from-slate-900/75 to-slate-950/95 shadow-2xl relative overflow-hidden">
+            <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/75 to-slate-950/95 shadow-2xl relative overflow-hidden">
               <form onSubmit={handleStudentLoginSubmit} className="space-y-4 sm:space-y-6">
                 {loginError && (
                   <div className="bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-2xl text-xs font-medium">
@@ -1771,7 +1651,7 @@ export default function Page() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Nome</label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Nome Allievo</label>
                   <input 
                     type="text" 
                     value={loginName} 
@@ -1782,7 +1662,7 @@ export default function Page() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Cognome</label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Cognome Allievo</label>
                   <input 
                     type="text" 
                     value={loginSurname} 
@@ -1792,35 +1672,16 @@ export default function Page() {
                     className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">Password</label>
-                  <div className="relative">
-                    <input 
-                      type={showLoginPassword ? "text" : "password"} 
-                      value={loginPassword} 
-                      onChange={(e) => setLoginPassword(e.target.value)} 
-                      required 
-                      placeholder="••••••••••••"
-                      className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#c9b074]" 
-                    />
-                    <button type="button" onClick={() => setShowLoginPassword(!showLoginPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
-                      {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
                 <button 
                   type="submit" 
                   disabled={loginLoading}
-                  className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-4 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-4 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
                 >
                   {loginLoading ? <Loader2 size={18} className="animate-spin" /> : <Unlock size={16} />}
                   <span>{loginLoading ? "Accesso..." : "Accedi alla galleria"}</span>
                 </button>
-                <div className="pt-4 border-t border-white/10 flex flex-col items-center gap-2 text-center">
-                  <button type="button" onClick={() => setAuthStep('forgot-password')} className="text-xs sm:text-sm text-[#c9b074] hover:underline cursor-pointer font-semibold">
-                    Hai dimenticato la password?
-                  </button>
-                  <p className="text-[11px] text-slate-300">Rivolgiti in segreteria per il primo accesso.</p>
+                <div className="pt-4 border-t border-white/10 text-center">
+                  <p className="text-[11px] text-slate-400">In caso di problemi di accesso o per la rigenerazione dei dati, rivolgiti allo staff in segreteria.</p>
                 </div>
               </form>
             </div>
@@ -1828,6 +1689,70 @@ export default function Page() {
         </main>
       )}
 
+      {/* Modal Inserimento Multiplo (Bulk) */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative backdrop-blur-2xl bg-slate-950/95 text-white shadow-2xl">
+            <button onClick={() => setIsBulkModalOpen(false)} className="absolute top-5 right-5 p-2 rounded-full text-slate-300 hover:text-white bg-white/5 cursor-pointer">
+              <X size={18} />
+            </button>
+            
+            <div className="text-center mb-6">
+              <span className="text-xs font-semibold tracking-[0.3em] uppercase text-[#c9b074] block mb-1">Staff Tools</span>
+              <h2 className="text-3xl font-normal font-playfair text-white">Inserimento Multiplo Allievi</h2>
+              <p className="text-xs text-slate-300 mt-1">Incolla un elenco di allievi (es. da file Excel o blocco note).</p>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-xs space-y-2 mb-6">
+              <p className="font-bold text-[#c9b074]">Formato per ciascuna riga (separato da virgola):</p>
+              <code className="block bg-black/60 p-2 rounded text-amber-200">
+                Nome, Cognome, Minorenne (si/no), Email Genitore (opzionale), Corsi (separati da ;), Evento
+              </code>
+              <p className="text-slate-400 italic">Esempio pratico:</p>
+              <pre className="bg-black/40 p-2.5 rounded text-[11px] text-slate-300 overflow-x-auto">
+{`Mario, Rossi, no, , Pianoforte;Canto, Saggio 2026
+Giulia, Bianchi, si, genitore@email.it, Canto, Saggio 2026
+Luca, Verdi, no, , Chitarra, Saggio 2026`}
+              </pre>
+            </div>
+
+            <form onSubmit={handleBulkInsert} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">
+                  Elenco Allievi
+                </label>
+                <textarea
+                  rows={8}
+                  value={bulkInputText}
+                  onChange={(e) => setBulkInputText(e.target.value)}
+                  placeholder="Incolla le righe qui..."
+                  required
+                  className="w-full bg-black/60 border border-white/15 rounded-2xl p-4 text-xs font-mono text-white focus:outline-none focus:border-[#c9b074]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  className="px-5 py-2.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/5 cursor-pointer"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-6 py-2.5 rounded-full flex items-center gap-2 cursor-pointer shadow-lg"
+                >
+                  <Upload size={16} />
+                  <span>Elabora e Importa Tutti</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Zoom Foto */}
       {zoomPhotoUrl && (
         <div 
           className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-between p-4 sm:p-8 animate-fadeIn"
@@ -1840,7 +1765,7 @@ export default function Page() {
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => {
-                  const shareText = "Guarda questa foto del mio saggio all'Accademia Toscanini!";
+                  const shareText = "Guarda questa foto del saggio all'Accademia Toscanini!";
                   if (navigator.share) {
                     navigator.share({ title: "Accademia Toscanini", text: shareText, url: zoomPhotoUrl }).catch(() => {});
                   } else {
@@ -1893,6 +1818,7 @@ export default function Page() {
         </div>
       )}
 
+      {/* Modal FAQ */}
       {isFaqModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 max-w-xl w-full max-h-[90vh] overflow-y-auto relative backdrop-blur-2xl bg-slate-950/90 text-white shadow-2xl">
@@ -1905,24 +1831,20 @@ export default function Page() {
             </div>
             <div className="space-y-4 text-xs sm:text-sm text-slate-200">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">1. Primo Accesso</h3>
-                <p>Inserisci Nome, Cognome e password provvisoria fornita dalla segreteria.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">1. Accesso</h3>
+                <p>Basta inserire nome e cognome registrati dalla segreteria dell'accademia.</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">2. Configurazione Account e Minorenni</h3>
-                <p>Se l'allievo è minorenne, durante il primo accesso verrà richiesto obbligatoriamente di inserire nome, cognome e email del genitore o tutore legale. L'email personale dell'allievo non verrà salvata.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">2. Primo Accesso</h3>
+                <p>Al primo login ti verrà richiesto di configurare i dati del genitore se minorenne.</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">3. Recupero Password</h3>
-                <p>Usa il link di recupero nella schermata di login oppure contatta la segreteria. Per i minorenni, i dati di recupero vengono inviati esclusivamente all'email del genitore.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">3. Recupero Dati</h3>
+                <p>Il recupero password è stato rimosso. La rigenerazione dello stato di accesso può essere effettuata esclusivamente dallo staff in segreteria.</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">4. Problemi con l'Accesso</h3>
-                <p>Se hai problemi con l'accesso, contatta la segreteria per assistenza.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">5. Scaricamento Foto</h3>
-                <p>Per il download delle foto, seleziona l'opzione "Scarica" nell'anteprima della foto.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">4. Scaricamento Foto</h3>
+                <p>Puoi selezionare le foto singolarmente o scaricare un archivio .ZIP completo in alta definizione.</p>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 text-center">
@@ -1934,6 +1856,7 @@ export default function Page() {
         </div>
       )}
 
+      {/* Modal Admin Password */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 max-w-md w-full relative backdrop-blur-2xl bg-slate-950/90 text-white shadow-2xl">
@@ -1946,12 +1869,12 @@ export default function Page() {
             </div>
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">PASSWORD</label>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">PASSWORD STAFF</label>
                 <div className="relative">
                   <input 
                     type={showAdminPassword ? "text" : "password"}
                     value={adminPasswordInput}
-                    onChange={(e) => setAdminPasswordInput(e.target.value)}
+                    onInput={(e) => setAdminPasswordInput((e.target as HTMLInputElement).value)}
                     placeholder="••••••••"
                     autoFocus
                     className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]"
@@ -1960,16 +1883,26 @@ export default function Page() {
                     {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                {adminPasswordError && <p className="text-red-400 text-xs mt-2 font-medium">Password errata.</p>}
+                {adminPasswordError && (
+                  <p className="text-red-400 text-xs mt-1.5 font-medium">Password non corretta. Riprova.</p>
+                )}
               </div>
-              <button type="submit" className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-lg mt-2">
-                <Lock size={16} /> Entra
+              <button 
+                type="submit" 
+                className="w-full bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm py-3.5 rounded-full transition-all active:scale-95 cursor-pointer shadow-lg mt-2 flex items-center justify-center gap-2"
+              >
+                <Unlock size={16} />
+                <span>Accedi come Staff</span>
               </button>
             </form>
           </div>
         </div>
       )}
 
+      {/* Footer Minimal */}
+      <footer className="relative z-10 w-full py-6 text-center border-t border-white/5 text-xs text-slate-500 font-light mt-auto">
+        © {new Date().getFullYear()} Nuova Accademia Toscanini. Tutti i diritti riservati.
+      </footer>
     </div>
   );
 }
