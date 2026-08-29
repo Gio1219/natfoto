@@ -153,6 +153,9 @@ export default function Page() {
   const [adminPasswordError, setAdminPasswordError] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
+  // Stato per decidere se applicare il watermark durante l'upload
+  const [applyWatermarkEnabled, setApplyWatermarkEnabled] = useState(true);
+
   // Zoom e Playlist foto
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
   const [activePhotosList, setActivePhotosList] = useState<string[]>([]);
@@ -720,16 +723,23 @@ export default function Page() {
     const studentFolder = `${targetStudent.name}_${targetStudent.surname}`.toLowerCase().trim().replace(/\s+/g, "_");
     const fileArray = Array.from(files);
     const uploadedUrls: string[] = [];
-    toast.info("Elaborazione e watermark foto in corso...");
+    
+    toast.info(applyWatermarkEnabled ? "Elaborazione e watermark foto in corso..." : "Caricamento foto in corso...");
 
     for (const file of fileArray) {
       try {
-        const watermarkedBlob = await applyWatermark(file, "/logo.png");
+        let fileToUpload: Blob = file;
+
+        // Applica il watermark solo se l'utente ha lasciato la spunta attiva
+        if (applyWatermarkEnabled) {
+          fileToUpload = await applyWatermark(file, "/logo.png");
+        }
+
         const fileName = `${studentFolder}/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
 
         const { error: uploadError } = await supabase.storage
           .from("foto-allievi")
-          .upload(fileName, watermarkedBlob, { contentType: "image/jpeg", upsert: true });
+          .upload(fileName, fileToUpload, { contentType: "image/jpeg", upsert: true });
 
         if (uploadError) continue;
 
@@ -738,7 +748,7 @@ export default function Page() {
           uploadedUrls.push(urlData.publicUrl);
         }
       } catch (err) {
-        console.error("Errore watermark:", err);
+        console.error("Errore upload file:", err);
       }
     }
 
@@ -995,7 +1005,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Form Singolo Allievo (Senza campi email) */}
+          {/* Form Singolo Allievo */}
           <div className="border border-[#c9b074]/25 rounded-4xl p-6 sm:p-10 mb-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/60 to-slate-950/85 shadow-xl">
             <h2 className="text-2xl sm:text-4xl font-normal mb-2 font-playfair text-white">
               Aggiungi Allievo Singolo
@@ -1259,6 +1269,23 @@ export default function Page() {
                                     <p className="text-xs italic mb-3 text-slate-400">Nessuna foto.</p>
                                   )}
 
+                                  {/* Opzione per attivare/disattivare il watermark al caricamento */}
+                                  <div className="flex items-center gap-2 mb-3 pt-1">
+                                    <input 
+                                      type="checkbox"
+                                      id={`wm-${student.id}-${eIdx}-${cIdx}`}
+                                      checked={applyWatermarkEnabled}
+                                      onChange={(e) => setApplyWatermarkEnabled(e.target.checked)}
+                                      className="w-4 h-4 accent-[#c9b074] rounded cursor-pointer"
+                                    />
+                                    <label 
+                                      htmlFor={`wm-${student.id}-${eIdx}-${cIdx}`} 
+                                      className="text-xs text-slate-300 cursor-pointer select-none font-medium"
+                                    >
+                                      Applica watermark con logo dell'Accademia
+                                    </label>
+                                  </div>
+
                                   <input 
                                     type="file" 
                                     multiple 
@@ -1350,10 +1377,9 @@ export default function Page() {
           </div>
         </main>
       ) : authStep === 'dashboard' && currentStudent ? (
-        /* AREA ALLIEVO (DISTINTA MINORENNI vs MAGGIORENNI) */
+        /* AREA ALLIEVO */
         <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-32 flex-1 w-full">
           
-          {/* Header Dashboard Allievo / Genitore */}
           <div className="bg-linear-to-r from-slate-900/90 via-slate-900/60 to-slate-950/90 border border-[#c9b074]/30 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -1466,7 +1492,6 @@ export default function Page() {
             </div>
           )}
 
-          {/* Lista Eventi e Corsi */}
           <div className="space-y-10">
             {currentStudent.events.map((event, eIdx) => {
               const filteredCourses = event.courses.filter(c => selectedCourseFilter === null || c.name === selectedCourseFilter);
@@ -1479,7 +1504,6 @@ export default function Page() {
               return (
                 <div key={eIdx} className="border border-[#c9b074]/25 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/50 to-slate-950/80 shadow-2xl transition-all">
                   
-                  {/* Header Evento */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-white/10">
                     <div className="flex items-center gap-4">
                       <button 
@@ -1506,7 +1530,6 @@ export default function Page() {
                     )}
                   </div>
 
-                  {/* Corsi */}
                   {!isMinimized && (
                     <div className="space-y-8">
                       {filteredCourses.map((course, cIdx) => {
@@ -1533,7 +1556,6 @@ export default function Page() {
                               )}
                             </div>
 
-                            {/* Foto Grid */}
                             {course.photos.length > 0 ? (
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-5">
                                 {course.photos.map((photoUrl, pIdx) => {
@@ -1603,7 +1625,6 @@ export default function Page() {
             })}
           </div>
 
-          {/* Floating Action Mobile */}
           <div className="fixed bottom-6 right-6 z-40 sm:hidden flex items-center gap-2">
             {selectedPhotos.length > 0 ? (
               <button
@@ -1629,7 +1650,7 @@ export default function Page() {
           </div>
         </main>
       ) : (
-        /* LOGIN SCHERMATA INIZIALE (SOLO NOME E COGNOME) */
+        /* LOGIN SCHERMATA INIZIALE */
         <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-10 lg:px-12 py-8 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20">
           <div className="w-full lg:w-7/12 flex flex-col items-center lg:items-start text-center lg:text-left space-y-6">
             <span className="text-xs font-semibold tracking-[0.4em] uppercase text-[#c9b074]">NUOVA ACCADEMIA TOSCANINI</span>
