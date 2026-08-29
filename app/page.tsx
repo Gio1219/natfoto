@@ -7,7 +7,7 @@ import {
   Download, Unlock, CheckSquare, Square, Archive, Check, ZoomIn, FolderPlus,
   Eye, EyeOff, Mail, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, HelpCircle, Loader2,
   FileSpreadsheet, FileText, Copy, Share2, Filter,
-  Upload, Users, ShieldAlert, UserCheck, Sparkles
+  Upload, Users, ShieldAlert, UserCheck, Sparkles, Edit3
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import JSZip from "jszip";
@@ -153,7 +153,6 @@ export default function Page() {
   const [adminPasswordError, setAdminPasswordError] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
-  // Stato per decidere se applicare il watermark durante l'upload
   const [applyWatermarkEnabled, setApplyWatermarkEnabled] = useState(true);
 
   // Zoom e Playlist foto
@@ -185,6 +184,9 @@ export default function Page() {
   const [newEventDescriptions, setNewEventDescriptions] = useState<{ [studentId: string]: string }>({});
   const [newCourseNames, setNewCourseNames] = useState<{ [key: string]: string }>({});
   const [eventDescInputs, setEventDescInputs] = useState<{ [key: string]: string }>({});
+  
+  // Stato per rinominare un corso/evento esistente nell'area staff
+  const [editingCourseInputs, setEditingCourseInputs] = useState<{ [key: string]: string }>({});
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -710,8 +712,39 @@ export default function Page() {
     const { error } = await supabase.from("students").update({ events: updatedEvents }).eq("id", studentId);
     if (!error) {
       setNewCourseNames({ ...newCourseNames, [key]: "" });
-      toast.success("Corso aggiunto!");
+      toast.success("Sezione/Corso aggiunto!");
       fetchStudents();
+    }
+  };
+
+  // Funzione per rinominare un corso in un evento (es. da "Corso di Canto" a "Momento Solista" o simile)
+  const handleRenameCourse = async (studentId: string, eventIndex: number, courseIndex: number) => {
+    const key = `${studentId}-${eventIndex}-${courseIndex}`;
+    const newName = editingCourseInputs[key]?.trim();
+    if (!newName) return;
+
+    const targetStudent = students.find((s) => s.id === studentId);
+    if (!targetStudent) return;
+
+    const updatedEvents = targetStudent.events.map((ev, eIdx) => {
+      if (eIdx === eventIndex) {
+        const updatedCourses = ev.courses.map((c, cIdx) => {
+          if (cIdx === courseIndex) {
+            return { ...c, name: newName };
+          }
+          return c;
+        });
+        return { ...ev, courses: updatedCourses };
+      }
+      return ev;
+    });
+
+    const { error } = await supabase.from("students").update({ events: updatedEvents }).eq("id", studentId);
+    if (!error) {
+      toast.success("Nome aggiornato con successo!");
+      fetchStudents();
+    } else {
+      toast.error(`Errore: ${error.message}`);
     }
   };
 
@@ -730,7 +763,6 @@ export default function Page() {
       try {
         let fileToUpload: Blob = file;
 
-        // Applica il watermark solo se l'utente ha lasciato la spunta attiva
         if (applyWatermarkEnabled) {
           fileToUpload = await applyWatermark(file, "/logo.png");
         }
@@ -861,7 +893,6 @@ export default function Page() {
   return (
     <div className="min-h-screen font-sans antialiased bg-slate-950 text-slate-100 selection:bg-[#c9b074] selection:text-black relative overflow-hidden transition-colors duration-300 flex flex-col">
 
-      {/* Sfondi Ambientali Soft Glow */}
       <div className="absolute -top-40 -left-40 w-120 h-120 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute top-1/2 -right-40 w-120 h-120 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute -bottom-40 left-1/3 w-120 h-120 bg-[#c9b074]/10 rounded-full blur-[120px] pointer-events-none" />
@@ -1060,7 +1091,7 @@ export default function Page() {
                   />
                 </div>
                 <div className="sm:col-span-1.5 md:col-span-1.5">
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">CORSI (SEPARATI DA VIRGOLA)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">CORSI / SEZIONI (SEPARATI DA VIRGOLA)</label>
                   <input 
                     type="text" 
                     value={newCorsiInput}
@@ -1223,7 +1254,7 @@ export default function Page() {
                             <div className="flex flex-col sm:flex-row items-center gap-2 mb-4">
                               <input 
                                 type="text"
-                                placeholder="Nuovo corso..."
+                                placeholder="Nuovo corso o sezione evento..."
                                 value={newCourseNames[`${student.id}-${eIdx}`] || ""}
                                 onChange={(e) => setNewCourseNames({ ...newCourseNames, [`${student.id}-${eIdx}`]: e.target.value })}
                                 className="w-full sm:flex-1 border rounded-xl px-3.5 py-2 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
@@ -1232,18 +1263,34 @@ export default function Page() {
                                 onClick={() => handleAddCourseToEvent(student.id, eIdx)}
                                 className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                               >
-                                <Plus size={14} /> Corso
+                                <Plus size={14} /> Sezione / Corso
                               </button>
                             </div>
 
                             <div className="space-y-4">
                               {event.courses.map((course, cIdx) => (
                                 <div key={cIdx} className="border rounded-2xl p-4 bg-black/50 border-white/10">
-                                  <div className="flex justify-between items-center mb-3">
-                                    <span className="text-sm sm:text-base font-bold text-slate-100 font-playfair">
-                                      Corso di {course.name}
-                                    </span>
-                                    <span className="text-xs text-slate-300">{course.photos.length} foto</span>
+                                  
+                                  {/* Rinomina Sezione / Corso o trasforma in Evento */}
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3 pb-3 border-b border-white/5">
+                                    <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+                                      <input 
+                                        type="text"
+                                        defaultValue={course.name}
+                                        placeholder="Nome corso o evento..."
+                                        onChange={(e) => setEditingCourseInputs({ ...editingCourseInputs, [`${student.id}-${eIdx}-${cIdx}`]: e.target.value })}
+                                        className="w-full sm:w-64 bg-black/60 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#c9b074]"
+                                      />
+                                      <button
+                                        onClick={() => handleRenameCourse(student.id, eIdx, cIdx)}
+                                        className="flex items-center gap-1 bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer font-medium shrink-0"
+                                        title="Rinomina (es. trasforma in Evento)"
+                                      >
+                                        <Edit3 size={13} />
+                                        <span>Rinomina</span>
+                                      </button>
+                                    </div>
+                                    <span className="text-xs text-slate-300 shrink-0">{course.photos.length} foto</span>
                                   </div>
 
                                   {course.photos.length > 0 ? (
@@ -1269,7 +1316,6 @@ export default function Page() {
                                     <p className="text-xs italic mb-3 text-slate-400">Nessuna foto.</p>
                                   )}
 
-                                  {/* Opzione per attivare/disattivare il watermark al caricamento */}
                                   <div className="flex items-center gap-2 mb-3 pt-1">
                                     <input 
                                       type="checkbox"
@@ -1308,7 +1354,7 @@ export default function Page() {
           </div>
         </main>
       ) : authStep === 'change-password' && currentStudent ? (
-        /* PRIMO ACCESSO (CONFIGURAZIONE DATI GENITORE SE MINORENNE) */
+        /* PRIMO ACCESSO */
         <main className="relative z-10 max-w-lg mx-auto px-4 pt-16 pb-28 flex-1 w-full flex items-center justify-center">
           <div className="border border-[#c9b074]/30 rounded-4xl p-6 sm:p-10 backdrop-blur-2xl bg-linear-to-b from-slate-900/60 to-slate-950/85 shadow-2xl text-white w-full">
             <div className="text-center mb-6">
@@ -1425,7 +1471,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Filtro Rapido per Corso */}
+          {/* Filtro Rapido per Corso / Evento */}
           {(() => {
             const allCourses = Array.from(
               new Set(currentStudent.events.flatMap(e => e.courses.map(c => c.name)))
@@ -1445,7 +1491,7 @@ export default function Page() {
                       : "bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
                   }`}
                 >
-                  Tutti i corsi
+                  Tutti
                 </button>
                 {allCourses.map((courseName) => (
                   <button
@@ -1542,8 +1588,8 @@ export default function Page() {
                               <h3 className="text-lg sm:text-2xl font-normal font-playfair flex items-center gap-3 text-white">
                                 <span className="w-2 h-2 rounded-full bg-[#c9b074]" />
                                 {currentStudent.is_minor 
-                                  ? `Foto di ${currentStudent.name} ${currentStudent.surname} — Corso di ${course.name}`
-                                  : `Corso di ${course.name}`}
+                                  ? `Foto di ${currentStudent.name} ${currentStudent.surname} — ${course.name}`
+                                  : `${course.name}`}
                               </h3>
                               {course.photos.length > 0 && (
                                 <button 
@@ -1551,7 +1597,7 @@ export default function Page() {
                                   className="flex items-center gap-2 text-xs text-slate-300 hover:text-[#c9b074] cursor-pointer font-medium transition-colors"
                                 >
                                   {isAllCourseSelected ? <CheckSquare size={15} className="text-[#c9b074]" /> : <Square size={15} />}
-                                  <span>{isAllCourseSelected ? "Deseleziona corso" : "Seleziona corso"}</span>
+                                  <span>{isAllCourseSelected ? "Deseleziona sezione" : "Seleziona sezione"}</span>
                                 </button>
                               )}
                             </div>
@@ -1613,7 +1659,7 @@ export default function Page() {
                                 })}
                               </div>
                             ) : (
-                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questo corso.</p>
+                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questa sezione.</p>
                             )}
                           </div>
                         );
@@ -1729,12 +1775,6 @@ export default function Page() {
               <code className="block bg-black/60 p-2 rounded text-amber-200">
                 Nome, Cognome, Minorenne (si/no), Email Genitore (opzionale), Corsi (separati da ;), Evento
               </code>
-              <p className="text-slate-400 italic">Esempio pratico:</p>
-              <pre className="bg-black/40 p-2.5 rounded text-[11px] text-slate-300 overflow-x-auto">
-{`Mario, Rossi, no, , Pianoforte;Canto, Saggio 2026
-Giulia, Bianchi, si, genitore@email.it, Canto, Saggio 2026
-Luca, Verdi, no, , Chitarra, Saggio 2026`}
-              </pre>
             </div>
 
             <form onSubmit={handleBulkInsert} className="space-y-4">
@@ -1860,12 +1900,8 @@ Luca, Verdi, no, , Chitarra, Saggio 2026`}
                 <p>Al primo login ti verrà richiesto di configurare i dati del genitore se minorenne.</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">3. Recupero Dati</h3>
-                <p>Il recupero password è stato rimosso. La rigenerazione dello stato di accesso può essere effettuata esclusivamente dallo staff in segreteria.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">4. Scaricamento Foto</h3>
-                <p>Puoi selezionare le foto singolarmente o scaricare un archivio .ZIP completo in alta definizione.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">3. Ridenominazione Corsi/Eventi</h3>
+                <p>Dall'area staff puoi modificare in qualsiasi momento il nome di una sezione (es. trasformarla da corso a evento generico) tramite il tasto Rinomina.</p>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 text-center">
