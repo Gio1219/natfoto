@@ -720,7 +720,6 @@ export default function Page() {
     }
   };
 
-  // Funzione per rinominare un corso in un evento (es. da "Corso di Canto" a "Momento Solista" o simile)
   const handleRenameCourse = async (studentId: string, eventIndex: number, courseIndex: number) => {
     const key = `${studentId}-${eventIndex}-${courseIndex}`;
     const newName = editingCourseInputs[key]?.trim();
@@ -756,13 +755,15 @@ export default function Page() {
     const targetStudent = students.find((s) => s.id === studentId);
     if (!targetStudent) return;
 
-    const studentFolder = `${targetStudent.name}_${targetStudent.surname}`.toLowerCase().trim().replace(/\s+/g, "_");
-    const fileArray = Array.from(files);
-    const uploadedUrls: string[] = [];
-    
-    toast.info(applyWatermarkEnabled ? "Elaborazione e watermark foto in corso..." : "Caricamento foto in corso...");
+    const studentFolderName = `${targetStudent.surname}_${targetStudent.name}`.toLowerCase().trim().replace(/\s+/g, "_");
+    const targetCourse = targetStudent.events[eventIndex]?.courses[courseIndex]?.name || "Generale";
+    const courseFolderName = targetCourse.trim().replace(/\s+/g, "_");
 
-    for (const file of fileArray) {
+    const fileArray = Array.from(files);
+    
+    toast.info(applyWatermarkEnabled ? "Elaborazione e watermark in corso..." : "Caricamento foto su Google Drive...");
+
+    const uploadPromises = fileArray.map(async (file) => {
       try {
         let fileToUpload: Blob = file;
 
@@ -770,25 +771,29 @@ export default function Page() {
           fileToUpload = await applyWatermark(file, "/logo.png");
         }
 
-        const fileName = `${studentFolder}/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+        const formData = new FormData();
+        formData.append("file", fileToUpload, file.name);
+        formData.append("studentName", studentFolderName);
+        formData.append("courseName", courseFolderName);
 
-        const { error: uploadError } = await supabase.storage
-          .from("foto-allievi")
-          .upload(fileName, fileToUpload, { contentType: "image/jpeg", upsert: true });
+        const res = await fetch("/api/drive-upload", {
+          method: "POST",
+          body: formData,
+        });
 
-        if (uploadError) continue;
-
-        const { data: urlData } = supabase.storage.from("foto-allievi").getPublicUrl(fileName);
-        if (urlData?.publicUrl) {
-          uploadedUrls.push(urlData.publicUrl);
-        }
+        const data = await res.json();
+        return data.success ? data.fileUrl : null;
       } catch (err) {
-        console.error("Errore upload file:", err);
+        console.error("Errore upload file su Drive:", err);
+        return null;
       }
-    }
+    });
+
+    const results = await Promise.all(uploadPromises);
+    const uploadedUrls = results.filter((url): url is string => url !== null);
 
     if (uploadedUrls.length === 0) {
-      toast.error("Nessuna foto caricata");
+      toast.error("Nessuna foto caricata su Google Drive");
       return;
     }
 
@@ -812,8 +817,10 @@ export default function Page() {
 
     const { error } = await supabase.from("students").update(updatePayload).eq("id", studentId);
     if (!error) {
-      toast.success("Foto caricate con successo!");
+      toast.success("Foto caricate e organizzate su Google Drive!");
       fetchStudents();
+    } else {
+      toast.error(`Errore salvataggio link: ${error.message}`);
     }
   };
 
@@ -829,14 +836,6 @@ export default function Page() {
   const handleDeletePhoto = async (studentId: string, eventIndex: number, courseIndex: number, photoIndex: number) => {
     const targetStudent = students.find((s) => s.id === studentId);
     if (!targetStudent) return;
-
-    const photoUrlToDelete = targetStudent.events[eventIndex]?.courses[courseIndex]?.photos[photoIndex];
-    if (photoUrlToDelete && photoUrlToDelete.includes("/foto-allievi/")) {
-      const pathParts = photoUrlToDelete.split("/foto-allievi/");
-      if (pathParts[1]) {
-        await supabase.storage.from("foto-allievi").remove([pathParts[1]]);
-      }
-    }
 
     const updatedEvents = targetStudent.events.map((ev, eIdx) => {
       if (eIdx === eventIndex) {
