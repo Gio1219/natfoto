@@ -65,7 +65,8 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
     let imgW = img.naturalWidth || img.width;
     let imgH = img.naturalHeight || img.height;
 
-    const MAX_DIM = 2048;
+    // Aumentato a 4096 per preservare i dettagli delle foto in 4K
+    const MAX_DIM = 4096; 
     if (imgW > MAX_DIM || imgH > MAX_DIM) {
       if (imgW > imgH) {
         imgH = Math.round((imgH * MAX_DIM) / imgW);
@@ -78,6 +79,10 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
 
     canvas.width = imgW;
     canvas.height = imgH;
+
+    // Imposta la massima qualità di rendering per evitare sgranature
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     ctx.drawImage(img, 0, 0, imgW, imgH);
 
@@ -122,7 +127,7 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
           else reject(new Error("Errore durante la conversione del Canvas"));
         },
         "image/jpeg",
-        1.0
+        1.0 // Qualità massima assoluta (lossless-like)
       );
     });
   } finally {
