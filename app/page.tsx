@@ -381,7 +381,10 @@ export default function Page() {
   const handleResetStudentPassword = async (student: Student) => {
     const { error } = await supabase
       .from("students")
-      .update({ has_changed_password: false })
+      .update({ 
+        has_changed_password: false,
+        password: crypto.randomUUID() 
+      })
       .eq("id", student.id);
 
     if (error) {
@@ -421,7 +424,7 @@ export default function Page() {
         name: nome,
         surname: cognome,
         number: "N/D",
-        password: "-",
+        password: crypto.randomUUID(),
         has_changed_password: false,
         is_minor: isMinor,
         parent_name: isMinor ? "Genitore" : null,
@@ -591,7 +594,7 @@ export default function Page() {
       name: newNome.trim(),
       surname: newCognome.trim(),
       number: newNumber.trim() || "N/D",
-      password: "-",
+      password: crypto.randomUUID(),
       has_changed_password: false,
       is_minor: newIsMinor,
       parent_name: null,
