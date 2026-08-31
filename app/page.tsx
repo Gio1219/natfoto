@@ -122,7 +122,7 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
           else reject(new Error("Errore durante la conversione del Canvas"));
         },
         "image/jpeg",
-        0.88
+        0.98
       );
     });
   } finally {

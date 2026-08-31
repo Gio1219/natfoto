@@ -46,7 +46,7 @@ export async function applyWatermark(
           else reject("Errore generazione Blob");
         },
         "image/jpeg",
-        0.92 // Qualità 92%
+        0.98 // Qualità 98%
       );
     };
 
