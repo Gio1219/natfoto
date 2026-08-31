@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     // 2. Trova o crea la sottocartella del corso specifico dentro quella dell'allievo
     const courseFolderId = await getOrCreateSubFolder(studentFolderId, courseName);
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+  const buffer = Buffer.from(await file.arrayBuffer());
     const stream = new Readable();
     stream.push(buffer);
     stream.push(null);
