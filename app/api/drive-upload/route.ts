@@ -15,23 +15,34 @@ oauth2Client.setCredentials({
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 async function getOrCreateSubFolder(parentFolderId: string, folderName: string) {
-  const query = `'${parentFolderId}' in parents and name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const sanitizedName = folderName.trim().replace(/'/g, "\\'");
+  const query = `'${parentFolderId}' in parents and name = '${sanitizedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  
   const search = await drive.files.list({ q: query, fields: 'files(id, name)' });
 
   if (search.data.files && search.data.files.length > 0) {
     return search.data.files[0].id!;
   }
 
-  const fileMetadata = {
-    name: folderName,
-    mimeType: 'application/vnd.google-apps.folder',
-    parents: [parentFolderId],
-  };
-  const create = await drive.files.create({
-    requestBody: fileMetadata,
-    fields: 'id',
-  });
-  return create.data.id!;
+  try {
+    const fileMetadata = {
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentFolderId],
+    };
+    const create = await drive.files.create({
+      requestBody: fileMetadata,
+      fields: 'id',
+    });
+    return create.data.id!;
+  } catch (err: any) {
+    // Gestione della concorrenza in caso di richieste multiple parallele
+    const retrySearch = await drive.files.list({ q: query, fields: 'files(id, name)' });
+    if (retrySearch.data.files && retrySearch.data.files.length > 0) {
+      return retrySearch.data.files[0].id!;
+    }
+    throw err;
+  }
 }
 
 export async function POST(request: Request) {
@@ -79,7 +90,7 @@ export async function POST(request: Request) {
 
     const fileId = uploadResponse.data.id!;
 
-    // Rendi il file accessibile pubblicamente per l'anteprima
+    // Rendi il file accessibile pubblicamente per l'anteprima rapida
     await drive.permissions.create({
       fileId: fileId,
       requestBody: {
