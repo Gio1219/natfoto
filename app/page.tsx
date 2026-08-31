@@ -65,8 +65,7 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
     let imgW = img.naturalWidth || img.width;
     let imgH = img.naturalHeight || img.height;
 
-    // Aumentato a 4096 per preservare i dettagli delle foto in 4K
-    const MAX_DIM = 4096; 
+    const MAX_DIM = 4096; // Gestione reale fino al 4K senza sgranature
     if (imgW > MAX_DIM || imgH > MAX_DIM) {
       if (imgW > imgH) {
         imgH = Math.round((imgH * MAX_DIM) / imgW);
@@ -80,7 +79,6 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
     canvas.width = imgW;
     canvas.height = imgH;
 
-    // Imposta la massima qualità di rendering per evitare sgranature
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
@@ -160,7 +158,6 @@ export default function Page() {
 
   const [applyWatermarkEnabled, setApplyWatermarkEnabled] = useState(true);
 
-  // Zoom e Playlist foto
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
   const [activePhotosList, setActivePhotosList] = useState<string[]>([]);
   const [zoomCurrentIndex, setZoomCurrentIndex] = useState<number>(0);
@@ -176,7 +173,6 @@ export default function Page() {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Single Student State
   const [newNome, setNewNome] = useState("");
   const [newCognome, setNewCognome] = useState("");
   const [newNumber, setNewNumber] = useState("");
@@ -189,8 +185,6 @@ export default function Page() {
   const [newEventDescriptions, setNewEventDescriptions] = useState<{ [studentId: string]: string }>({});
   const [newCourseNames, setNewCourseNames] = useState<{ [key: string]: string }>({});
   const [eventDescInputs, setEventDescInputs] = useState<{ [key: string]: string }>({});
-  
-  // Stato per rinominare un corso/evento esistente nell'area staff
   const [editingCourseInputs, setEditingCourseInputs] = useState<{ [key: string]: string }>({});
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
@@ -215,7 +209,6 @@ export default function Page() {
       });
 
       formattedData.sort((a, b) => (a.surname || "").localeCompare(b.surname || "", "it", { sensitivity: "base" }));
-
       setStudents(formattedData as Student[]);
 
       const initialMinState: { [key: string]: boolean } = {};
@@ -236,7 +229,6 @@ export default function Page() {
     const index = list.indexOf(photoUrl);
     setZoomCurrentIndex(index !== -1 ? index : 0);
     setZoomPhotoUrl(photoUrl);
-    if (navigator.vibrate) navigator.vibrate(20);
   };
 
   const handleNextPhoto = () => {
@@ -244,7 +236,6 @@ export default function Page() {
     const nextIndex = (zoomCurrentIndex + 1) % activePhotosList.length;
     setZoomCurrentIndex(nextIndex);
     setZoomPhotoUrl(activePhotosList[nextIndex]);
-    if (navigator.vibrate) navigator.vibrate(15);
   };
 
   const handlePrevPhoto = () => {
@@ -252,7 +243,6 @@ export default function Page() {
     const prevIndex = (zoomCurrentIndex - 1 + activePhotosList.length) % activePhotosList.length;
     setZoomCurrentIndex(prevIndex);
     setZoomPhotoUrl(activePhotosList[prevIndex]);
-    if (navigator.vibrate) navigator.vibrate(15);
   };
 
   const toggleMinimizeEvent = (eIdx: number) => {
@@ -419,7 +409,7 @@ export default function Page() {
       const isMinor = isMinorRaw?.toLowerCase() === "si" || isMinorRaw?.toLowerCase() === "sì" || isMinorRaw?.toLowerCase() === "true";
       const initials = `${nome[0] || ""}${cognome[0] || ""}`.toUpperCase();
 
-      const coursesList = (corsoVal || "Pianoforte")
+      const coursesList = (corsoVal || "Aula 1")
         .split(";")
         .map(c => ({ name: c.trim(), photos: [] }));
 
@@ -502,14 +492,12 @@ export default function Page() {
   };
 
   const togglePhotoSelection = (photoUrl: string) => {
-    if (navigator.vibrate) navigator.vibrate(25);
     setSelectedPhotos((prev) =>
       prev.includes(photoUrl) ? prev.filter((url) => url !== photoUrl) : [...prev, photoUrl]
     );
   };
 
   const toggleSelectAllPhotos = (photosList: string[]) => {
-    if (navigator.vibrate) navigator.vibrate(30);
     const allSelected = photosList.every((url) => selectedPhotos.includes(url));
     if (allSelected) {
       setSelectedPhotos((prev) => prev.filter((url) => !photosList.includes(url)));
@@ -520,7 +508,6 @@ export default function Page() {
   };
 
   const handleDownloadSinglePhoto = async (photoUrl: string, fileName: string) => {
-    if (navigator.vibrate) navigator.vibrate(40);
     try {
       const response = await fetch(photoUrl);
       const blob = await response.blob();
@@ -534,7 +521,7 @@ export default function Page() {
       document.body.removeChild(link);
       
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success("Download completato");
+      toast.success("Download completato in alta definizione");
     } catch {
       window.open(photoUrl, "_blank");
     }
@@ -542,23 +529,22 @@ export default function Page() {
 
   const downloadZip = async (photosToDownload: string[], zipFilename: string) => {
     if (photosToDownload.length === 0) return;
-    if (navigator.vibrate) navigator.vibrate(50);
     setIsZipping(true);
-    toast.info("Generazione archivio ZIP in corso...");
+    toast.info("Generazione archivio ZIP in corso (massima qualità)...");
 
     try {
       const zip = new JSZip();
-      const folder = zip.folder("foto-saggio");
+      const folder = zip.folder("foto-saggio-alta-definizione");
 
       for (let i = 0; i < photosToDownload.length; i++) {
         const url = photosToDownload[i];
         if (url.startsWith("data:")) {
           const base64Data = url.split(",")[1] || url;
-          folder?.file(`foto-${i + 1}.jpg`, base64Data, { base64: true });
+          folder?.file(`foto-4k-${i + 1}.jpg`, base64Data, { base64: true });
         } else {
           const response = await fetch(url);
           const blob = await response.blob();
-          folder?.file(`foto-${i + 1}.jpg`, blob);
+          folder?.file(`foto-4k-${i + 1}.jpg`, blob);
         }
       }
 
@@ -639,7 +625,7 @@ export default function Page() {
 
     const updatedEvents = [
       ...targetStudent.events,
-      { eventName, description: eventDescription, courses: [{ name: "Generale", photos: [] }] }
+      { eventName, description: eventDescription, courses: [{ name: "Aula 1", photos: [] }] }
     ];
 
     const { error } = await supabase
@@ -720,7 +706,7 @@ export default function Page() {
     const { error } = await supabase.from("students").update({ events: updatedEvents }).eq("id", studentId);
     if (!error) {
       setNewCourseNames({ ...newCourseNames, [key]: "" });
-      toast.success("Sezione/Corso aggiunto!");
+      toast.success("Aula aggiunta!");
       fetchStudents();
     }
   };
@@ -761,12 +747,12 @@ export default function Page() {
     if (!targetStudent) return;
 
     const studentFolderName = `${targetStudent.surname}_${targetStudent.name}`.toLowerCase().trim().replace(/\s+/g, "_");
-    const targetCourse = targetStudent.events[eventIndex]?.courses[courseIndex]?.name || "Generale";
+    const targetCourse = targetStudent.events[eventIndex]?.courses[courseIndex]?.name || "Aula_1";
     const courseFolderName = targetCourse.trim().replace(/\s+/g, "_");
 
     const fileArray = Array.from(files);
     
-    toast.info(applyWatermarkEnabled ? "Elaborazione e watermark in corso..." : "Caricamento foto su Google Drive...");
+    toast.info(applyWatermarkEnabled ? "Elaborazione foto 4K con watermark..." : "Caricamento foto 4K originali su Drive...");
 
     const uploadPromises = fileArray.map(async (file) => {
       try {
@@ -822,7 +808,7 @@ export default function Page() {
 
     const { error } = await supabase.from("students").update(updatePayload).eq("id", studentId);
     if (!error) {
-      toast.success("Foto caricate e organizzate su Google Drive!");
+      toast.success("Foto 4K caricate e organizzate su Google Drive!");
       fetchStudents();
     } else {
       toast.error(`Errore salvataggio link: ${error.message}`);
@@ -977,10 +963,10 @@ export default function Page() {
                 <span className="text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074]">Pannello Direzione</span>
               </div>
               <h1 className="text-3xl sm:text-6xl font-normal font-playfair text-white leading-tight">
-                Gestione Allievi
+                Gestione Allievi & Aule (1-11)
               </h1>
               <p className="text-xs sm:text-base text-slate-300 italic mt-1">
-                L'elenco allievi è ordinato automaticamente in ordine alfabetico per cognome. Gli allievi effettuano il login inserendo solo nome e cognome.
+                L'elenco allievi è ordinato automaticamente in ordine alfabetico per cognome. Gestione aule da Aula 1 a Aula 11.
               </p>
             </div>
 
@@ -1049,7 +1035,7 @@ export default function Page() {
               Aggiungi Allievo Singolo
             </h2>
             <p className="text-xs sm:text-sm mb-6 font-light text-slate-300">
-              Inserisci i dati per registrare un singolo allievo. Non è necessaria alcuna password iniziale.
+              Inserisci i dati per registrare un singolo allievo.
             </p>
 
             <form onSubmit={handleCreateStudent} className="space-y-4 sm:space-y-6">
@@ -1098,12 +1084,12 @@ export default function Page() {
                   />
                 </div>
                 <div className="sm:col-span-1.5 md:col-span-1.5">
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">CORSI / SEZIONI (SEPARATI DA VIRGOLA)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">AULE (ES. Aula 1, Aula 2, ...)</label>
                   <input 
                     type="text" 
                     value={newCorsiInput}
                     onChange={(e) => setNewCorsiInput(e.target.value)}
-                    placeholder="Pianoforte, Canto"
+                    placeholder="Aula 1, Aula 2, Aula 3"
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
@@ -1261,7 +1247,7 @@ export default function Page() {
                             <div className="flex flex-col sm:flex-row items-center gap-2 mb-4">
                               <input 
                                 type="text"
-                                placeholder="Nuovo corso o sezione evento..."
+                                placeholder="Nuova Aula (es. Aula 1)..."
                                 value={newCourseNames[`${student.id}-${eIdx}`] || ""}
                                 onChange={(e) => setNewCourseNames({ ...newCourseNames, [`${student.id}-${eIdx}`]: e.target.value })}
                                 className="w-full sm:flex-1 border rounded-xl px-3.5 py-2 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
@@ -1270,7 +1256,7 @@ export default function Page() {
                                 onClick={() => handleAddCourseToEvent(student.id, eIdx)}
                                 className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                               >
-                                <Plus size={14} /> Sezione / Corso
+                                <Plus size={14} /> Aggiungi Aula
                               </button>
                             </div>
 
@@ -1278,26 +1264,25 @@ export default function Page() {
                               {event.courses.map((course, cIdx) => (
                                 <div key={cIdx} className="border rounded-2xl p-4 bg-black/50 border-white/10">
                                   
-                                  {/* Rinomina Sezione / Corso o trasforma in Evento */}
                                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3 pb-3 border-b border-white/5">
                                     <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
                                       <input 
                                         type="text"
                                         defaultValue={course.name}
-                                        placeholder="Nome corso o evento..."
+                                        placeholder="Nome Aula (es. Aula 1)..."
                                         onChange={(e) => setEditingCourseInputs({ ...editingCourseInputs, [`${student.id}-${eIdx}-${cIdx}`]: e.target.value })}
                                         className="w-full sm:w-64 bg-black/60 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#c9b074]"
                                       />
                                       <button
                                         onClick={() => handleRenameCourse(student.id, eIdx, cIdx)}
                                         className="flex items-center gap-1 bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer font-medium shrink-0"
-                                        title="Rinomina (es. trasforma in Evento)"
+                                        title="Rinomina Aula"
                                       >
                                         <Edit3 size={13} />
                                         <span>Rinomina</span>
                                       </button>
                                     </div>
-                                    <span className="text-xs text-slate-300 shrink-0">{course.photos.length} foto</span>
+                                    <span className="text-xs text-slate-300 shrink-0">{course.photos.length} foto 4K</span>
                                   </div>
 
                                   {course.photos.length > 0 ? (
@@ -1320,7 +1305,7 @@ export default function Page() {
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-xs italic mb-3 text-slate-400">Nessuna foto.</p>
+                                    <p className="text-xs italic mb-3 text-slate-400">Nessuna foto in questa aula.</p>
                                   )}
 
                                   <div className="flex items-center gap-2 mb-3 pt-1">
@@ -1335,7 +1320,7 @@ export default function Page() {
                                       htmlFor={`wm-${student.id}-${eIdx}-${cIdx}`} 
                                       className="text-xs text-slate-300 cursor-pointer select-none font-medium"
                                     >
-                                      Applica watermark con logo dell'Accademia
+                                      Applica watermark con logo in alta definizione
                                     </label>
                                   </div>
 
@@ -1473,12 +1458,12 @@ export default function Page() {
                 className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-sm px-6 py-3.5 rounded-2xl transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg"
               >
                 <Archive size={18} />
-                <span>{isZipping ? "Creazione ZIP..." : "Scarica Tutte le Foto (.zip)"}</span>
+                <span>{isZipping ? "Creazione ZIP..." : "Scarica Tutte le Foto 4K (.zip)"}</span>
               </button>
             </div>
           </div>
 
-          {/* Filtro Rapido per Corso / Evento */}
+          {/* Filtro Rapido per Aula */}
           {(() => {
             const allCourses = Array.from(
               new Set(currentStudent.events.flatMap(e => e.courses.map(c => c.name)))
@@ -1488,7 +1473,7 @@ export default function Page() {
             return (
               <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
                 <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 mr-2 shrink-0 uppercase tracking-wider">
-                  <Filter size={14} className="text-[#c9b074]" /> Filtra:
+                  <Filter size={14} className="text-[#c9b074]" /> Filtra Aula:
                 </span>
                 <button
                   onClick={() => setSelectedCourseFilter(null)}
@@ -1498,7 +1483,7 @@ export default function Page() {
                       : "bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
                   }`}
                 >
-                  Tutti
+                  Tutte
                 </button>
                 {allCourses.map((courseName) => (
                   <button
@@ -1539,7 +1524,7 @@ export default function Page() {
                   className="flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer shadow-lg"
                 >
                   <Download size={15} />
-                  <span>Scarica Selezione (.zip)</span>
+                  <span>Scarica Selezione 4K (.zip)</span>
                 </button>
               </div>
             </div>
@@ -1604,7 +1589,7 @@ export default function Page() {
                                   className="flex items-center gap-2 text-xs text-slate-300 hover:text-[#c9b074] cursor-pointer font-medium transition-colors"
                                 >
                                   {isAllCourseSelected ? <CheckSquare size={15} className="text-[#c9b074]" /> : <Square size={15} />}
-                                  <span>{isAllCourseSelected ? "Deseleziona sezione" : "Seleziona sezione"}</span>
+                                  <span>{isAllCourseSelected ? "Deseleziona aula" : "Seleziona aula"}</span>
                                 </button>
                               )}
                             </div>
@@ -1634,7 +1619,7 @@ export default function Page() {
                                         className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-3 pointer-events-none"
                                       >
                                         <span className="hidden sm:inline-flex items-center gap-1.5 bg-black/80 text-white text-[11px] font-medium px-3 py-1.5 rounded-xl border border-white/20 shadow-lg">
-                                          <ZoomIn size={13} className="text-[#c9b074]" /> Ingrandisci
+                                          <ZoomIn size={13} className="text-[#c9b074]" /> Ingrandisci 4K
                                         </span>
                                       </div>
 
@@ -1655,9 +1640,10 @@ export default function Page() {
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleDownloadSinglePhoto(photoUrl, `foto-${currentStudent.name}-${event.eventName}-${course.name}-${pIdx + 1}.jpg`);
+                                          handleDownloadSinglePhoto(photoUrl, `foto-4k-${currentStudent.name}-${event.eventName}-${course.name}-${pIdx + 1}.jpg`);
                                         }}
                                         className="absolute top-2.5 right-2.5 bg-black/60 hover:bg-black/90 text-white p-2 rounded-xl backdrop-blur-md border border-white/10 shadow-md z-20 cursor-pointer transition-all active:scale-95"
+                                        title="Scarica in HD"
                                       >
                                         <Download size={13} />
                                       </button>
@@ -1666,7 +1652,7 @@ export default function Page() {
                                 })}
                               </div>
                             ) : (
-                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questa sezione.</p>
+                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questa aula.</p>
                             )}
                           </div>
                         );
@@ -1676,30 +1662,6 @@ export default function Page() {
                 </div>
               );
             })}
-          </div>
-
-          <div className="fixed bottom-6 right-6 z-40 sm:hidden flex items-center gap-2">
-            {selectedPhotos.length > 0 ? (
-              <button
-                onClick={() => downloadZip(selectedPhotos, `foto-selezionate-${currentStudent.surname}`)}
-                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2 active:scale-95 transition-transform"
-              >
-                <Download size={18} />
-                <span className="text-xs">Scarica ({selectedPhotos.length})</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  const allPhotos = currentStudent.events.flatMap((ev) => ev.courses.flatMap((c) => c.photos));
-                  downloadZip(allPhotos, `saggio-${currentStudent.surname}-${currentStudent.name}`);
-                }}
-                disabled={isZipping || getTotalPhotosCount(currentStudent) === 0}
-                className="bg-[#c9b074] text-black font-bold px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
-              >
-                <Archive size={18} />
-                <span className="text-xs">{isZipping ? "ZIP..." : "Scarica Tutto"}</span>
-              </button>
-            )}
           </div>
         </main>
       ) : (
@@ -1712,7 +1674,7 @@ export default function Page() {
               <span className="italic font-normal bg-linear-to-r from-white via-[#c9b074] to-slate-300 bg-clip-text text-transparent">Galleria Privata</span>
             </h1>
             <p className="text-sm sm:text-lg max-w-2xl font-normal leading-relaxed text-slate-200">
-              Inserisci semplicemente il tuo nome e cognome registrati dalla segreteria dell'accademia per esplorare, selezionare e scaricare i tuoi ricordi in alta definizione.
+              Inserisci il tuo nome e cognome registrati dalla segreteria dell'accademia per esplorare, selezionare e scaricare i tuoi ricordi in altissima definizione.
             </p>
           </div>
 
@@ -1754,9 +1716,6 @@ export default function Page() {
                   {loginLoading ? <Loader2 size={18} className="animate-spin" /> : <Unlock size={16} />}
                   <span>{loginLoading ? "Accesso..." : "Accedi alla galleria"}</span>
                 </button>
-                <div className="pt-4 border-t border-white/10 text-center">
-                  <p className="text-[11px] text-slate-400">In caso di problemi di accesso o per la rigenerazione dei dati, rivolgiti allo staff in segreteria.</p>
-                </div>
               </form>
             </div>
           </div>
@@ -1774,13 +1733,13 @@ export default function Page() {
             <div className="text-center mb-6">
               <span className="text-xs font-semibold tracking-[0.3em] uppercase text-[#c9b074] block mb-1">Staff Tools</span>
               <h2 className="text-3xl font-normal font-playfair text-white">Inserimento Multiplo Allievi</h2>
-              <p className="text-xs text-slate-300 mt-1">Incolla un elenco di allievi (es. da file Excel o blocco note).</p>
+              <p className="text-xs text-slate-300 mt-1">Incolla un elenco di allievi.</p>
             </div>
 
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-xs space-y-2 mb-6">
-              <p className="font-bold text-[#c9b074]">Formato per ciascuna riga (separato da virgola):</p>
+              <p className="font-bold text-[#c9b074]">Formato per ciascuna riga:</p>
               <code className="block bg-black/60 p-2 rounded text-amber-200">
-                Nome, Cognome, Minorenne (si/no), Email Genitore (opzionale), Corsi (separati da ;), Evento
+                Nome, Cognome, Minorenne (si/no), Email Genitore, Aule (es. Aula 1;Aula 2), Evento
               </code>
             </div>
 
@@ -1828,29 +1787,15 @@ export default function Page() {
         >
           <div className="w-full max-w-6xl flex justify-between items-center z-10" onClick={(e) => e.stopPropagation()}>
             <div className="text-xs sm:text-sm text-slate-300 font-mono">
-              {zoomCurrentIndex + 1} / {activePhotosList.length}
+              {zoomCurrentIndex + 1} / {activePhotosList.length} (Alta Definizione)
             </div>
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => {
-                  const shareText = "Guarda questa foto del saggio all'Accademia Toscanini!";
-                  if (navigator.share) {
-                    navigator.share({ title: "Accademia Toscanini", text: shareText, url: zoomPhotoUrl }).catch(() => {});
-                  } else {
-                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + " " + zoomPhotoUrl)}`, '_blank');
-                  }
-                }}
-                className="flex items-center gap-1.5 bg-emerald-600/20 text-emerald-300 font-bold text-xs px-3.5 py-2 rounded-full cursor-pointer"
-              >
-                <Share2 size={14} />
-                <span className="hidden sm:inline">Condividi</span>
-              </button>
-              <button 
-                onClick={() => handleDownloadSinglePhoto(zoomPhotoUrl, "foto-saggio-nat.jpg")}
+                onClick={() => handleDownloadSinglePhoto(zoomPhotoUrl, "foto-saggio-4k.jpg")}
                 className="flex items-center gap-1.5 bg-[#c9b074] text-black font-bold text-xs px-4 py-2 rounded-full shadow cursor-pointer"
               >
                 <Download size={14} />
-                <span>Scarica</span>
+                <span>Scarica 4K</span>
               </button>
               <button onClick={() => setZoomPhotoUrl(null)} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full cursor-pointer">
                 <X size={18} />
@@ -1877,7 +1822,7 @@ export default function Page() {
             )}
             <img 
               src={zoomPhotoUrl} 
-              alt="Anteprima foto" 
+              alt="Anteprima foto 4K" 
               className="max-w-full max-h-[70vh] object-contain rounded-2xl select-none shadow-2xl"
             />
           </div>
@@ -1899,16 +1844,8 @@ export default function Page() {
             </div>
             <div className="space-y-4 text-xs sm:text-sm text-slate-200">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">1. Accesso</h3>
-                <p>Basta inserire nome e cognome registrati dalla segreteria dell'accademia.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">2. Primo Accesso</h3>
-                <p>Al primo login ti verrà richiesto di configurare i dati del genitore se minorenne.</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">3. Ridenominazione Corsi/Eventi</h3>
-                <p>Dall'area staff puoi modificare in qualsiasi momento il nome di una sezione (es. trasformarla da corso a evento generico) tramite il tasto Rinomina.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">1. Gestione Aule</h3>
+                <p>Le aule sono organizzate da Aula 1 a Aula 11 per ogni evento o saggio.</p>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 text-center">
@@ -1936,16 +1873,13 @@ export default function Page() {
                 <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">PASSWORD STAFF</label>
                 <div className="relative">
                   <input 
-                    type={showAdminPassword ? "text" : "password"}
+                    type="password"
                     value={adminPasswordInput}
                     onInput={(e) => setAdminPasswordInput((e.target as HTMLInputElement).value)}
                     placeholder="••••••••"
                     autoFocus
-                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 pr-11 text-sm text-white focus:outline-none focus:border-[#c9b074]"
+                    className="w-full bg-black/50 border border-white/15 rounded-2xl p-3.5 text-sm text-white focus:outline-none focus:border-[#c9b074]"
                   />
-                  <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
-                    {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
                 </div>
                 {adminPasswordError && (
                   <p className="text-red-400 text-xs mt-1.5 font-medium">Password non corretta. Riprova.</p>
@@ -1963,7 +1897,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* Footer Minimal */}
       <footer className="relative z-10 w-full py-6 text-center border-t border-white/5 text-xs text-slate-500 font-light mt-auto">
         © {new Date().getFullYear()} Nuova Accademia Toscanini. Tutti i diritti riservati.
       </footer>

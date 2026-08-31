@@ -36,7 +36,6 @@ async function getOrCreateSubFolder(parentFolderId: string, folderName: string) 
     });
     return create.data.id!;
   } catch (err: any) {
-    // Gestione della concorrenza in caso di richieste multiple parallele
     const retrySearch = await drive.files.list({ q: query, fields: 'files(id, name)' });
     if (retrySearch.data.files && retrySearch.data.files.length > 0) {
       return retrySearch.data.files[0].id!;
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
     const courseName = formData.get('courseName') as string;
 
     if (!file || !studentName || !courseName) {
-      return NextResponse.json({ error: 'File, nome allievo o corso mancanti' }, { status: 400 });
+      return NextResponse.json({ error: 'File, nome allievo o aula mancanti' }, { status: 400 });
     }
 
     const mainFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
@@ -61,19 +60,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Cartella principale Google Drive non configurata' }, { status: 500 });
     }
 
-    // 1. Trova o crea la cartella dell'allievo dentro la principale
     const studentFolderId = await getOrCreateSubFolder(mainFolderId, studentName);
-    
-    // 2. Trova o crea la sottocartella del corso specifico dentro quella dell'allievo
     const courseFolderId = await getOrCreateSubFolder(studentFolderId, courseName);
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await file.arrayBuffer());
     const stream = new Readable();
     stream.push(buffer);
     stream.push(null);
 
     const fileMetadata = {
-      name: `${Date.now()}-${file.name.replace(/\s+/g, '_')}`,
+      name: `${Date.now()}-4k-${file.name.replace(/\s+/g, '_')}`,
       parents: [courseFolderId],
     };
 
@@ -90,7 +86,6 @@ export async function POST(request: Request) {
 
     const fileId = uploadResponse.data.id!;
 
-    // Rendi il file accessibile pubblicamente per l'anteprima rapida
     await drive.permissions.create({
       fileId: fileId,
       requestBody: {
@@ -106,7 +101,7 @@ export async function POST(request: Request) {
       fileUrl: publicUrl,
     });
   } catch (error: any) {
-    console.error('Errore upload Google Drive OAuth:', error);
+    console.error('Errore upload Google Drive OAuth 4K:', error);
     return NextResponse.json({ error: error.message || 'Errore interno' }, { status: 500 });
   }
 }
