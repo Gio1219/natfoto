@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 
     const fileId = uploadResponse.data.id!;
 
-    // Restituisce l'URL del proxy locale che passa attraverso il server Next.js
+    // Restituisce l'URL del proxy locale
     const proxyUrl = `/api/drive-image?id=${fileId}`;
 
     return NextResponse.json({
