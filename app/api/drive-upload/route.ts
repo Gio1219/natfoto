@@ -14,28 +14,6 @@ oauth2Client.setCredentials({
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-async function getOrCreateSubFolder(parentFolderId: string, folderName: string) {
-  const sanitizedName = folderName.trim().replace(/'/g, "\\'");
-  const query = `'${parentFolderId}' in parents and name = '${sanitizedName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  
-  const search = await drive.files.list({ q: query, fields: 'files(id, name)' });
-
-  if (search.data.files && search.data.files.length > 0) {
-    return search.data.files[0].id!;
-  }
-
-  const fileMetadata = {
-    name: folderName,
-    mimeType: 'application/vnd.google-apps.folder',
-    parents: [parentFolderId],
-  };
-  const create = await drive.files.create({
-    requestBody: fileMetadata,
-    fields: 'id',
-  });
-  return create.data.id!;
-}
-
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -52,17 +30,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Cartella principale Google Drive non configurata' }, { status: 500 });
     }
 
-    const studentFolderId = await getOrCreateSubFolder(mainFolderId, studentName);
-    const courseFolderId = await getOrCreateSubFolder(studentFolderId, courseName);
-
+    // Test rapido di scrittura diretta nella cartella principale per isolare il problema
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const stream = Readable.from(buffer);
 
     const uploadResponse = await drive.files.create({
       requestBody: {
-        name: `${Date.now()}-4k-${file.name.replace(/\s+/g, '_')}`,
-        parents: [courseFolderId],
+        name: `${Date.now()}-${file.name.replace(/\s+/g, '_')}`,
+        parents: [mainFolderId],
       },
       media: {
         mimeType: file.type || 'image/jpeg',
@@ -79,7 +55,7 @@ export async function POST(request: Request) {
       fileUrl: proxyUrl,
     });
   } catch (error: any) {
-    console.error('DETTAGLIO ERRORE GOOGLE DRIVE:', error?.errors || error?.message || error);
-    return NextResponse.json({ error: error.message || 'Errore interno durante l\'upload' }, { status: 500 });
+    console.error('ERRORE CRITICO DRIVE:', error);
+    return NextResponse.json({ error: error?.message || 'Errore sconosciuto' }, { status: 500 });
   }
 }
