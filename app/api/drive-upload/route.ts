@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { Readable } from 'stream';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_OAUTH_CLIENT_ID,
@@ -24,24 +23,16 @@ async function getOrCreateSubFolder(parentFolderId: string, folderName: string) 
     return search.data.files[0].id!;
   }
 
-  try {
-    const fileMetadata = {
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentFolderId],
-    };
-    const create = await drive.files.create({
-      requestBody: fileMetadata,
-      fields: 'id',
-    });
-    return create.data.id!;
-  } catch (err: any) {
-    const retrySearch = await drive.files.list({ q: query, fields: 'files(id, name)' });
-    if (retrySearch.data.files && retrySearch.data.files.length > 0) {
-      return retrySearch.data.files[0].id!;
-    }
-    throw err;
-  }
+  const fileMetadata = {
+    name: folderName,
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: [parentFolderId],
+  };
+  const create = await drive.files.create({
+    requestBody: fileMetadata,
+    fields: 'id',
+  });
+  return create.data.id!;
 }
 
 export async function POST(request: Request) {
@@ -63,30 +54,23 @@ export async function POST(request: Request) {
     const studentFolderId = await getOrCreateSubFolder(mainFolderId, studentName);
     const courseFolderId = await getOrCreateSubFolder(studentFolderId, courseName);
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const stream = new Readable();
-    stream.push(buffer);
-    stream.push(null);
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    const fileMetadata = {
-      name: `${Date.now()}-4k-${file.name.replace(/\s+/g, '_')}`,
-      parents: [courseFolderId],
-    };
-
-    const media = {
-      mimeType: file.type || 'image/jpeg',
-      body: stream,
-    };
-
+    // Caricamento diretto tramite multipart buffer per evitare errori di stream
     const uploadResponse = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
+      requestBody: {
+        name: `${Date.now()}-4k-${file.name.replace(/\s+/g, '_')}`,
+        parents: [courseFolderId],
+      },
+      media: {
+        mimeType: file.type || 'image/jpeg',
+        body: buffer as any,
+      },
       fields: 'id',
     });
 
     const fileId = uploadResponse.data.id!;
-
-    // Restituisce l'URL del proxy locale
     const proxyUrl = `/api/drive-image?id=${fileId}`;
 
     return NextResponse.json({
