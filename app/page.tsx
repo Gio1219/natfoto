@@ -125,7 +125,7 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
           else reject(new Error("Errore durante la conversione del Canvas"));
         },
         "image/jpeg",
-        1.0 // Qualità massima assoluta (lossless-like)
+        1.0 // Qualità massima assoluta
       );
     });
   } finally {
@@ -409,7 +409,7 @@ export default function Page() {
       const isMinor = isMinorRaw?.toLowerCase() === "si" || isMinorRaw?.toLowerCase() === "sì" || isMinorRaw?.toLowerCase() === "true";
       const initials = `${nome[0] || ""}${cognome[0] || ""}`.toUpperCase();
 
-      const coursesList = (corsoVal || "Aula 1")
+      const coursesList = (corsoVal || "Generale")
         .split(";")
         .map(c => ({ name: c.trim(), photos: [] }));
 
@@ -625,7 +625,7 @@ export default function Page() {
 
     const updatedEvents = [
       ...targetStudent.events,
-      { eventName, description: eventDescription, courses: [{ name: "Aula 1", photos: [] }] }
+      { eventName, description: eventDescription, courses: [{ name: "Sezione Principale", photos: [] }] }
     ];
 
     const { error } = await supabase
@@ -706,7 +706,7 @@ export default function Page() {
     const { error } = await supabase.from("students").update({ events: updatedEvents }).eq("id", studentId);
     if (!error) {
       setNewCourseNames({ ...newCourseNames, [key]: "" });
-      toast.success("Aula aggiunta!");
+      toast.success("Sezione aggiunta!");
       fetchStudents();
     }
   };
@@ -747,7 +747,7 @@ export default function Page() {
     if (!targetStudent) return;
 
     const studentFolderName = `${targetStudent.surname}_${targetStudent.name}`.toLowerCase().trim().replace(/\s+/g, "_");
-    const targetCourse = targetStudent.events[eventIndex]?.courses[courseIndex]?.name || "Aula_1";
+    const targetCourse = targetStudent.events[eventIndex]?.courses[courseIndex]?.name || "Sezione";
     const courseFolderName = targetCourse.trim().replace(/\s+/g, "_");
 
     const fileArray = Array.from(files);
@@ -963,10 +963,10 @@ export default function Page() {
                 <span className="text-xs font-semibold tracking-[0.25em] uppercase text-[#c9b074]">Pannello Direzione</span>
               </div>
               <h1 className="text-3xl sm:text-6xl font-normal font-playfair text-white leading-tight">
-                Gestione Allievi & Aule (1-11)
+                Gestione Allievi
               </h1>
               <p className="text-xs sm:text-base text-slate-300 italic mt-1">
-                L'elenco allievi è ordinato automaticamente in ordine alfabetico per cognome. Gestione aule da Aula 1 a Aula 11.
+                L'elenco allievi è ordinato automaticamente in ordine alfabetico per cognome. Gestione basata su eventi e sezioni.
               </p>
             </div>
 
@@ -1084,12 +1084,12 @@ export default function Page() {
                   />
                 </div>
                 <div className="sm:col-span-1.5 md:col-span-1.5">
-                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">AULE (ES. Aula 1, Aula 2, ...)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-widest mb-2 text-slate-200">SEZIONI / CORSI (SEPARATI DA VIRGOLA)</label>
                   <input 
                     type="text" 
                     value={newCorsiInput}
                     onChange={(e) => setNewCorsiInput(e.target.value)}
-                    placeholder="Aula 1, Aula 2, Aula 3"
+                    placeholder="Pianoforte, Canto"
                     className="w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors bg-black/50 border-white/15 text-white placeholder-slate-600 focus:border-[#c9b074]"
                   />
                 </div>
@@ -1247,7 +1247,7 @@ export default function Page() {
                             <div className="flex flex-col sm:flex-row items-center gap-2 mb-4">
                               <input 
                                 type="text"
-                                placeholder="Nuova Aula (es. Aula 1)..."
+                                placeholder="Nuova Sezione / Corso..."
                                 value={newCourseNames[`${student.id}-${eIdx}`] || ""}
                                 onChange={(e) => setNewCourseNames({ ...newCourseNames, [`${student.id}-${eIdx}`]: e.target.value })}
                                 className="w-full sm:flex-1 border rounded-xl px-3.5 py-2 text-sm bg-black/50 border-white/15 text-white focus:outline-none focus:border-[#c9b074]"
@@ -1256,7 +1256,7 @@ export default function Page() {
                                 onClick={() => handleAddCourseToEvent(student.id, eIdx)}
                                 className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                               >
-                                <Plus size={14} /> Aggiungi Aula
+                                <Plus size={14} /> Aggiungi Sezione
                               </button>
                             </div>
 
@@ -1269,14 +1269,14 @@ export default function Page() {
                                       <input 
                                         type="text"
                                         defaultValue={course.name}
-                                        placeholder="Nome Aula (es. Aula 1)..."
+                                        placeholder="Nome sezione..."
                                         onChange={(e) => setEditingCourseInputs({ ...editingCourseInputs, [`${student.id}-${eIdx}-${cIdx}`]: e.target.value })}
                                         className="w-full sm:w-64 bg-black/60 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#c9b074]"
                                       />
                                       <button
                                         onClick={() => handleRenameCourse(student.id, eIdx, cIdx)}
                                         className="flex items-center gap-1 bg-[#c9b074]/20 hover:bg-[#c9b074]/30 border border-[#c9b074]/40 text-[#c9b074] text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer font-medium shrink-0"
-                                        title="Rinomina Aula"
+                                        title="Rinomina Sezione"
                                       >
                                         <Edit3 size={13} />
                                         <span>Rinomina</span>
@@ -1305,7 +1305,7 @@ export default function Page() {
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-xs italic mb-3 text-slate-400">Nessuna foto in questa aula.</p>
+                                    <p className="text-xs italic mb-3 text-slate-400">Nessuna foto in questa sezione.</p>
                                   )}
 
                                   <div className="flex items-center gap-2 mb-3 pt-1">
@@ -1463,7 +1463,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Filtro Rapido per Aula */}
+          {/* Filtro Rapido per Sezione */}
           {(() => {
             const allCourses = Array.from(
               new Set(currentStudent.events.flatMap(e => e.courses.map(c => c.name)))
@@ -1473,7 +1473,7 @@ export default function Page() {
             return (
               <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
                 <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 mr-2 shrink-0 uppercase tracking-wider">
-                  <Filter size={14} className="text-[#c9b074]" /> Filtra Aula:
+                  <Filter size={14} className="text-[#c9b074]" /> Filtra Sezione:
                 </span>
                 <button
                   onClick={() => setSelectedCourseFilter(null)}
@@ -1524,7 +1524,7 @@ export default function Page() {
                   className="flex items-center gap-2 bg-[#c9b074] hover:bg-[#b89f63] text-black font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer shadow-lg"
                 >
                   <Download size={15} />
-                  <span>Scarica Selezione 4K (.zip)</span>
+                  <span>Scarica Selezionate 4K (.zip)</span>
                 </button>
               </div>
             </div>
@@ -1589,7 +1589,7 @@ export default function Page() {
                                   className="flex items-center gap-2 text-xs text-slate-300 hover:text-[#c9b074] cursor-pointer font-medium transition-colors"
                                 >
                                   {isAllCourseSelected ? <CheckSquare size={15} className="text-[#c9b074]" /> : <Square size={15} />}
-                                  <span>{isAllCourseSelected ? "Deseleziona aula" : "Seleziona aula"}</span>
+                                  <span>{isAllCourseSelected ? "Deseleziona sezione" : "Seleziona sezione"}</span>
                                 </button>
                               )}
                             </div>
@@ -1652,7 +1652,7 @@ export default function Page() {
                                 })}
                               </div>
                             ) : (
-                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questa aula.</p>
+                              <p className="text-xs sm:text-sm italic text-slate-400 py-2">Nessuna foto disponibile in questa sezione.</p>
                             )}
                           </div>
                         );
@@ -1739,7 +1739,7 @@ export default function Page() {
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-xs space-y-2 mb-6">
               <p className="font-bold text-[#c9b074]">Formato per ciascuna riga:</p>
               <code className="block bg-black/60 p-2 rounded text-amber-200">
-                Nome, Cognome, Minorenne (si/no), Email Genitore, Aule (es. Aula 1;Aula 2), Evento
+                Nome, Cognome, Minorenne (si/no), Email Genitore, Sezioni (es. Pianoforte;Canto), Evento
               </code>
             </div>
 
@@ -1844,8 +1844,8 @@ export default function Page() {
             </div>
             <div className="space-y-4 text-xs sm:text-sm text-slate-200">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <h3 className="font-bold text-white mb-1 font-playfair">1. Gestione Aule</h3>
-                <p>Le aule sono organizzate da Aula 1 a Aula 11 per ogni evento o saggio.</p>
+                <h3 className="font-bold text-white mb-1 font-playfair">1. Accesso</h3>
+                <p>Inserisci nome e cognome registrati dalla segreteria dell'accademia.</p>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 text-center">

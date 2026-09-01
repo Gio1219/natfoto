@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const courseName = formData.get('courseName') as string;
 
     if (!file || !studentName || !courseName) {
-      return NextResponse.json({ error: 'File, nome allievo o aula mancanti' }, { status: 400 });
+      return NextResponse.json({ error: 'File, nome allievo o sezione mancanti' }, { status: 400 });
     }
 
     const mainFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
@@ -86,19 +86,12 @@ export async function POST(request: Request) {
 
     const fileId = uploadResponse.data.id!;
 
-    await drive.permissions.create({
-      fileId: fileId,
-      requestBody: {
-        role: 'reader',
-        type: 'anyone',
-      },
-    });
-
-    const publicUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+    // Restituisce l'URL del proxy locale che passa attraverso il server Next.js
+    const proxyUrl = `/api/drive-image?id=${fileId}`;
 
     return NextResponse.json({
       success: true,
-      fileUrl: publicUrl,
+      fileUrl: proxyUrl,
     });
   } catch (error: any) {
     console.error('Errore upload Google Drive OAuth 4K:', error);
