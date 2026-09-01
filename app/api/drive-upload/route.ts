@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_OAUTH_CLIENT_ID,
@@ -56,8 +57,8 @@ export async function POST(request: Request) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const stream = Readable.from(buffer);
 
-    // Caricamento diretto tramite multipart buffer per evitare errori di stream
     const uploadResponse = await drive.files.create({
       requestBody: {
         name: `${Date.now()}-4k-${file.name.replace(/\s+/g, '_')}`,
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       },
       media: {
         mimeType: file.type || 'image/jpeg',
-        body: buffer as any,
+        body: stream,
       },
       fields: 'id',
     });
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
       fileUrl: proxyUrl,
     });
   } catch (error: any) {
-    console.error('Errore upload Google Drive OAuth 4K:', error);
-    return NextResponse.json({ error: error.message || 'Errore interno' }, { status: 500 });
+    console.error('DETTAGLIO ERRORE GOOGLE DRIVE:', error?.errors || error?.message || error);
+    return NextResponse.json({ error: error.message || 'Errore interno durante l\'upload' }, { status: 500 });
   }
 }
