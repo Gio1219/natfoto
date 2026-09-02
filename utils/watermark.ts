@@ -40,13 +40,13 @@ export async function applyWatermark(
       ctx.drawImage(logo, x, y, watermarkWidth, watermarkHeight);
 
       // 5. Esporta il file elaborato in JPG
-      canvas.toBlob(
+  canvas.toBlob(
         (blob) => {
           if (blob) resolve(blob);
-          else reject("Errore generazione Blob");
+          else reject(new Error("Errore durante la conversione del Canvas"));
         },
         "image/jpeg",
-        1.0 // Qualità 100%
+        0.95 // <-- Modificato da 1.0 a 0.95 per rientrare nei limiti di Vercel
       );
     };
 
