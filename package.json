@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm install --legacy-peer-deps",
     "build": "npx @opennextjs/cloudflare build",
     "preview": "npx @opennextjs/cloudflare preview"
   },
