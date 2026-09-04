@@ -57,7 +57,8 @@ export const applyWatermark = async (file: File, logoPath?: string): Promise<Blo
     let logo: HTMLImageElement | null = null;
 
     // Carica il logo SOLO se il percorso è valido e non vuoto
-    if (logoPath && logoPath.trim() !== "") {
+    const hasLogo = logoPath && logoPath.trim() !== "";
+    if (hasLogo) {
       try {
         logo = await loadImage(logoPath);
       } catch (e) {
@@ -92,7 +93,7 @@ export const applyWatermark = async (file: File, logoPath?: string): Promise<Blo
     ctx.drawImage(img, 0, 0, imgW, imgH);
 
     // Disegna il watermark solo se il logo è stato effettivamente caricato
-    if (logo) {
+    if (logo && hasLogo) {
       const logoW = logo.naturalWidth || logo.width;
       const logoH = logo.naturalHeight || logo.height;
       
@@ -762,16 +763,18 @@ export default function Page() {
 
     const fileArray = Array.from(files);
     
-    toast.info(applyWatermarkEnabled ? "Elaborazione foto 4K con watermark..." : "Caricamento foto 4K originali su Drive...");
+    toast.info(applyWatermarkEnabled ? "Elaborazione foto 4K con watermark..." : "Elaborazione e compressione foto 4K...");
 
     const uploadPromises = fileArray.map(async (file) => {
       try {
-        let fileToUpload: Blob = file;
+        let fileToUpload: Blob;
 
-        // Passa SEMPRE attraverso il Canvas per ridimensionare a 2048px e comprimere, 
-        // evitando l'errore 413 su Vercel, sia con che senza watermark.
-        // Se il watermark è spento, passiamo una stringa vuota o gestiamo la funzione senza disegnare il logo.
-        fileToUpload = await applyWatermark(file, applyWatermarkEnabled ? "/logo.png" : "");
+        // Se il watermark è attivo passiamo il logo, altrimenti passiamo undefined in modo che applichi solo la compressione sicura e il ridimensionamento a 2K
+        if (applyWatermarkEnabled) {
+          fileToUpload = await applyWatermark(file, "/logo.png");
+        } else {
+          fileToUpload = await applyWatermark(file, undefined);
+        }
 
         const formData = new FormData();
         formData.append("file", fileToUpload, file.name);
