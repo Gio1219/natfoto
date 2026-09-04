@@ -49,14 +49,21 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
-const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promise<Blob> => {
+export const applyWatermark = async (file: File, logoPath?: string): Promise<Blob> => {
   const objectUrl = URL.createObjectURL(file);
 
   try {
-    const [img, logo] = await Promise.all([
-      loadImage(objectUrl),
-      loadImage(logoPath)
-    ]);
+    const img = await loadImage(objectUrl);
+    let logo: HTMLImageElement | null = null;
+
+    // Carica il logo SOLO se il percorso è valido e non vuoto
+    if (logoPath && logoPath.trim() !== "") {
+      try {
+        logo = await loadImage(logoPath);
+      } catch (e) {
+        console.warn("Logo non trovato, procedo senza watermark:", e);
+      }
+    }
 
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -65,7 +72,7 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
     let imgW = img.naturalWidth || img.width;
     let imgH = img.naturalHeight || img.height;
 
-    const MAX_DIM = 4096; // Gestione reale fino al 4K senza sgranature
+    const MAX_DIM = 2048; 
     if (imgW > MAX_DIM || imgH > MAX_DIM) {
       if (imgW > imgH) {
         imgH = Math.round((imgH * MAX_DIM) / imgW);
@@ -84,48 +91,51 @@ const applyWatermark = async (file: File, logoPath: string = "/logo.png"): Promi
 
     ctx.drawImage(img, 0, 0, imgW, imgH);
 
-    const logoW = logo.naturalWidth || logo.width;
-    const logoH = logo.naturalHeight || logo.height;
-    
-    const minDim = Math.min(imgW, imgH);
-    const wmWidth = minDim * 0.40;
-    const aspectRatio = logoH / logoW;
-    const wmHeight = wmWidth * aspectRatio;
+    // Disegna il watermark solo se il logo è stato effettivamente caricato
+    if (logo) {
+      const logoW = logo.naturalWidth || logo.width;
+      const logoH = logo.naturalHeight || logo.height;
+      
+      const minDim = Math.min(imgW, imgH);
+      const wmWidth = minDim * 0.40;
+      const aspectRatio = logoH / logoW;
+      const wmHeight = wmWidth * aspectRatio;
 
-    const margin = minDim * 0.045;
-    const x = imgW - wmWidth - margin;
-    const y = imgH - wmHeight - margin;
+      const margin = minDim * 0.045;
+      const x = imgW - wmWidth - margin;
+      const y = imgH - wmHeight - margin;
 
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.95)";
-    ctx.shadowBlur = minDim * 0.015;
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.95)";
+      ctx.shadowBlur = minDim * 0.015;
 
-    const offsets = [
-      { dx: -2, dy: -2 },
-      { dx: 2, dy: -2 },
-      { dx: -2, dy: 2 },
-      { dx: 2, dy: 2 }
-    ];
+      const offsets = [
+        { dx: -2, dy: -2 },
+        { dx: 2, dy: -2 },
+        { dx: -2, dy: 2 },
+        { dx: 2, dy: 2 }
+      ];
 
-    offsets.forEach(({ dx, dy }) => {
-      ctx.shadowOffsetX = dx;
-      ctx.shadowOffsetY = dy;
+      offsets.forEach(({ dx, dy }) => {
+        ctx.shadowOffsetX = dx;
+        ctx.shadowOffsetY = dy;
+        ctx.drawImage(logo, x, y, wmWidth, wmHeight);
+      });
+
+      ctx.shadowColor = "transparent";
+      ctx.globalAlpha = 1.0;
       ctx.drawImage(logo, x, y, wmWidth, wmHeight);
-    });
-
-    ctx.shadowColor = "transparent";
-    ctx.globalAlpha = 1.0;
-    ctx.drawImage(logo, x, y, wmWidth, wmHeight);
-    ctx.restore();
+      ctx.restore();
+    }
 
     return new Promise((resolve, reject) => {
-     canvas.toBlob(
+      canvas.toBlob(
         (blob) => {
           if (blob) resolve(blob);
           else reject(new Error("Errore durante la conversione del Canvas"));
         },
         "image/jpeg",
-        0.92 // <-- Modificato da 1.0 a 0.95 per rientrare nei limiti di Vercel
+        0.92
       );
     });
   } finally {
