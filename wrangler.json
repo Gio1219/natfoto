@@ -1,0 +1,9 @@
+{
+  "name": "nome-del-tuo-progetto",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-09-04",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}

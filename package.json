@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "build": "npx @opennextjs/cloudflare build",
+    "preview": "npx @opennextjs/cloudflare preview"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
     "@supabase/supabase-js": "^2.110.8",
     "googleapis": "^176.0.0",
     "jszip": "^3.10.1",
