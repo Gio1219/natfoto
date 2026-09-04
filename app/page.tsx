@@ -758,9 +758,10 @@ export default function Page() {
       try {
         let fileToUpload: Blob = file;
 
-        if (applyWatermarkEnabled) {
-          fileToUpload = await applyWatermark(file, "/logo.png");
-        }
+        // Passa SEMPRE attraverso il Canvas per ridimensionare a 2048px e comprimere, 
+        // evitando l'errore 413 su Vercel, sia con che senza watermark.
+        // Se il watermark è spento, passiamo una stringa vuota o gestiamo la funzione senza disegnare il logo.
+        fileToUpload = await applyWatermark(file, applyWatermarkEnabled ? "/logo.png" : "");
 
         const formData = new FormData();
         formData.append("file", fileToUpload, file.name);
