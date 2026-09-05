@@ -1,4 +1,0 @@
-{
-  "buildCommand": "npx @opennextjs/cloudflare build",
-  "packageManager": "npm"
-}
