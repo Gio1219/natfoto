@@ -5,7 +5,7 @@
   "packageManager": "npm@10.9.2",
 "scripts": {
     "dev": "next dev",
-   "build": "opennextjs-cloudflare"
+   "build": "opennextjs-cloudflare build"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.6",
