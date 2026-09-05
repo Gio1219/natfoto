@@ -5,8 +5,7 @@
   "packageManager": "npm@10.9.2",
 "scripts": {
     "dev": "next dev",
-    "build": "npx @opennextjs/cloudflare build",
-    "preview": "npx @opennextjs/cloudflare preview"
+    "build": "npx --no-install opennextjs-cloudflare"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.6",

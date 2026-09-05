@@ -1,9 +1,6 @@
 {
-  "name": "nome-del-tuo-progetto",
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nat-accademia",
   "main": ".open-next/worker.js",
-  "compatibility_date": "2026-09-04",
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
-  }
+  "compatibility_date": "2026-09-04"
 }
